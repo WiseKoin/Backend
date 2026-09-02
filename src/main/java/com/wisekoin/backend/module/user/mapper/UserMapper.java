@@ -1,12 +1,14 @@
 package com.wisekoin.backend.module.user.mapper;
 
 import com.wisekoin.backend.module.user.User;
-import com.wisekoin.backend.module.user.dto.UserRegisterRequest;
+import com.wisekoin.backend.module.auth.dto.RegisterRequest;
 import com.wisekoin.backend.module.user.dto.UserResponse;
+import org.springframework.stereotype.Component;
 
+@Component
 public class UserMapper {
 
-    public User toEntity(UserRegisterRequest request) {
+    public User toEntity(RegisterRequest request) {
         User user = new User();
 
         user.setUsername(request.getUsername());

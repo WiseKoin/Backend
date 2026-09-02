@@ -17,6 +17,21 @@ public class UserService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
 
+    public boolean existsByEmail(String email) {
+        return userRepository.existsByEmail(email);
+    }
+
+    @Transactional
+    public User createUser(String email, String encodedPassword, String username, String phone) {
+        User newUser = new User();
+        newUser.setEmail(email);
+        newUser.setPassword(encodedPassword);
+        newUser.setUsername(username);
+        newUser.setPhone(phone);
+
+        return userRepository.save(newUser);
+    }
+
     @Transactional
     public User updateUserProfile(String email, User updatedUser) {
         User user = getUserByEmail(email);
