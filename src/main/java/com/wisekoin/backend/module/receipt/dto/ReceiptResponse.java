@@ -1,8 +1,8 @@
-package com.wisekoin.backend.module.receipt;
+package com.wisekoin.backend.module.receipt.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public record ReceiptResponseDto(
+public record ReceiptResponse(
     @JsonProperty("store_name")
     String storeName,
 

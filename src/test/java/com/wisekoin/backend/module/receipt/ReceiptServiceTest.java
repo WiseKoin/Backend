@@ -1,14 +1,15 @@
 package com.wisekoin.backend.module.receipt;
 
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.web.client.RestClient;
+import tools.jackson.databind.json.JsonMapper;
 
 class ReceiptServiceTest {
 
@@ -16,7 +17,10 @@ class ReceiptServiceTest {
 
     @BeforeEach
     void setUp() {
-        receiptService = new ReceiptService(new ObjectMapper());
+        receiptService = new ReceiptService(
+                mock(RestClient.class),
+                new JsonMapper()
+        );
     }
 
     @Test

@@ -5,17 +5,21 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
+import com.wisekoin.backend.module.receipt.dto.ReceiptResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 @Service
+@RequiredArgsConstructor
 public class ReceiptService {
+
     @Value("${gemini.api.vision.language.key}")
     private String apiKey;
 
@@ -23,14 +27,9 @@ public class ReceiptService {
     private String apiUrl;
 
     private final RestClient restClient;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
 
-    public ReceiptService(ObjectMapper objectMapper) {
-        this.restClient = RestClient.create();
-        this.objectMapper = objectMapper;
-    }
-
-    public ReceiptResponseDto extractReceipt(MultipartFile file) throws IOException {
+    public ReceiptResponse extractReceipt(MultipartFile file) throws IOException {
         String mimeType = validateAndNormalizeMimeType(file);
         String base64Image = encodeImageToBase64(file);
 
@@ -100,8 +99,8 @@ public class ReceiptService {
             .body(String.class);
     }
 
-    private ReceiptResponseDto parseGeminiResponse(String responseRaw) throws IOException {
-        JsonNode rootNode = objectMapper.readTree(responseRaw);
+    private ReceiptResponse parseGeminiResponse(String responseRaw) throws IOException {
+        JsonNode rootNode = jsonMapper.readTree(responseRaw);
         JsonNode candidate = rootNode.path("candidates").get(0);
 
         if (candidate == null || candidate.path("content").isMissingNode()) {
@@ -109,10 +108,11 @@ public class ReceiptService {
         }
 
         String extractedJsonText = candidate
-            .path("content")
-            .path("parts").get(0)
-            .path("text").asText();
+                .path("content")
+                .path("parts").get(0)
+                .path("text").asString();
 
-        return objectMapper.readValue(extractedJsonText, ReceiptResponseDto.class);
+        return jsonMapper.readValue(extractedJsonText, ReceiptResponse.class);
     }
+
 }
