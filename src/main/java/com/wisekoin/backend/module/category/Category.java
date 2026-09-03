@@ -8,7 +8,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "categories")
+@Table(name = "categories", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"user_id", "name"})
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -23,7 +25,7 @@ public class Category {
     @JsonIgnore
     private User user;
 
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false)
     private String name;
 
     @Enumerated(EnumType.STRING)

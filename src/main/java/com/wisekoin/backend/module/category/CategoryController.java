@@ -44,11 +44,9 @@ public class CategoryController {
     ) {
         List<Category> categoryList = categoryService.getCategoryByType(categoryType, currentUser.getId());
 
-        List<CategoryResponse> categoryResponseList = new ArrayList<>();
-        for (Category category : categoryList) {
-            CategoryResponse response = categoryMapper.toResponse(category);
-            categoryResponseList.add(response);
-        }
+        List<CategoryResponse> categoryResponseList = categoryList.stream()
+                .map(categoryMapper::toResponse)
+                .toList();
 
         return ResponseEntity.ok(categoryResponseList);
     }
