@@ -1,10 +1,14 @@
 package com.wisekoin.backend.module.receipt;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.wisekoin.backend.module.category.Category;
+import com.wisekoin.backend.module.category.CategoryService;
 import com.wisekoin.backend.module.receipt.dto.ReceiptResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,15 +32,24 @@ public class ReceiptService {
 
     private final RestClient restClient;
     private final JsonMapper jsonMapper;
+    private final CategoryService categoryService;
 
-    public ReceiptResponse extractReceipt(MultipartFile file) throws IOException {
+    public ReceiptResponse extractReceipt(MultipartFile file, Long userId) throws IOException {
         String mimeType = validateAndNormalizeMimeType(file);
         String base64Image = encodeImageToBase64(file);
 
-        Map<String, Object> requestBody = buildGeminiRequestBody(mimeType, base64Image);
+        List<String> expenseCategories = getExpenseCategories(userId);
+        Map<String, Object> requestBody = buildGeminiRequestBody(mimeType, base64Image, expenseCategories);
         String responseRaw = callGeminiApi(requestBody);
 
-        return parseGeminiResponse(responseRaw);
+        return parseGeminiResponse(responseRaw, expenseCategories);
+    }
+
+    private List<String> getExpenseCategories(Long userId) {
+        return categoryService.getCategoryByType(Category.CategoryType.EXPENSE, userId)
+                .stream()
+                .map(Category::getName)
+                .toList();
     }
 
     private String validateAndNormalizeMimeType(MultipartFile file) {
@@ -61,36 +74,48 @@ public class ReceiptService {
         return Base64.getEncoder().encodeToString(file.getBytes());
     }
 
-    private Map<String, Object> buildGeminiRequestBody(String mimeType, String base64Image) {
-        return Map.of(
-            "contents", List.of(
-                Map.of(
-                    "parts", List.of(
-                        Map.of("text", "Extract store name, category of expenditure (must be strictly one of: Food, Drinks, Transport, Accommodation), and total payment amount from this receipt accurately."),
-                        Map.of("inline_data", Map.of(
-                            "mime_type", mimeType,
-                            "data", base64Image
-                        ))
-                    )
-                )
-            ),
-            "generationConfig", Map.of(
-                "temperature", 0.0,
-                "response_mime_type", "application/json",
-                "response_schema", Map.of(
-                    "type", "OBJECT",
-                    "properties", Map.of(
-                        "store_name", Map.of("type", "STRING"),
-                        "category", Map.of(
-                            "type", "STRING",
-                            "enum", List.of("Food", "Drinks", "Transport", "Accommodation")
-                        ),
-                        "amount", Map.of("type", "NUMBER")
-                    ),
-                    "required", List.of("store_name", "category", "amount")
+    private Map<String, Object> buildGeminiRequestBody(String mimeType, String base64Image, List<String> categories) {
+        String categoryList = String.join(", ", categories);
+        String prompt = "Extract store name, category of expenditure, and total payment amount from this receipt accurately. "
+            + "The category must be one of the following user-defined categories: " + categoryList
+            + ". If the category cannot be matched to any of these, use 'Unknown'.";
+
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("contents", List.of(
+            Map.of(
+                "parts", List.of(
+                    Map.of("text", prompt),
+                    Map.of("inline_data", Map.of(
+                        "mime_type", mimeType,
+                        "data", base64Image
+                    ))
                 )
             )
-        );
+        ));
+
+        Map<String, Object> generationConfig = new HashMap<>();
+        generationConfig.put("temperature", 0.0);
+        generationConfig.put("response_mime_type", "application/json");
+
+        Map<String, Object> categorySchema = new HashMap<>();
+        categorySchema.put("type", "STRING");
+        categorySchema.put("enum", new ArrayList<>(categories));
+        categorySchema.put("description", "The expenditure category, must be one of the user-defined categories listed above or 'Unknown'.");
+
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("store_name", Map.of("type", "STRING"));
+        properties.put("category", categorySchema);
+        properties.put("amount", Map.of("type", "NUMBER"));
+
+        Map<String, Object> responseSchema = new HashMap<>();
+        responseSchema.put("type", "OBJECT");
+        responseSchema.put("properties", properties);
+        responseSchema.put("required", List.of("store_name", "category", "amount"));
+
+        generationConfig.put("response_schema", responseSchema);
+        requestBody.put("generationConfig", generationConfig);
+
+        return requestBody;
     }
 
     private String callGeminiApi(Map<String, Object> requestBody) {
@@ -102,7 +127,7 @@ public class ReceiptService {
             .body(String.class);
     }
 
-    private ReceiptResponse parseGeminiResponse(String responseRaw) throws IOException {
+    private ReceiptResponse parseGeminiResponse(String responseRaw, List<String> validCategories) throws IOException {
         JsonNode rootNode = jsonMapper.readTree(responseRaw);
         JsonNode candidate = rootNode.path("candidates").get(0);
 
@@ -115,7 +140,13 @@ public class ReceiptService {
                 .path("parts").get(0)
                 .path("text").asString();
 
-        return jsonMapper.readValue(extractedJsonText, ReceiptResponse.class);
+        ReceiptResponse response = jsonMapper.readValue(extractedJsonText, ReceiptResponse.class);
+
+        if (!validCategories.contains(response.category())) {
+            response = new ReceiptResponse(response.storeName(), "Unknown", response.amount());
+        }
+
+        return response;
     }
 
 }

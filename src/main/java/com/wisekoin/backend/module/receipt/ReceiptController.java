@@ -2,12 +2,14 @@ package com.wisekoin.backend.module.receipt;
 
 import java.io.IOException;
 
+import com.wisekoin.backend.module.auth.security.CustomUserDetails;
 import com.wisekoin.backend.module.receipt.dto.ReceiptResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -21,15 +23,17 @@ import org.springframework.web.multipart.MultipartFile;
 public class ReceiptController {
 
     private final ReceiptService receiptService;
-    
-    @PostMapping(value = "/extract", consumes = MediaType.MULTIPART_FORM_DATA_VALUE) 
-    public ResponseEntity<?> extractReceiptData(@RequestParam("file") MultipartFile file) {
+
+    @PostMapping(value = "/extract", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> extractReceiptData(
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().body("File cannot be empty.");
         }
 
         try {
-            ReceiptResponse result = receiptService.extractReceipt(file);
+            ReceiptResponse result = receiptService.extractReceipt(file, currentUser.getId());
             return ResponseEntity.ok(result);
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
