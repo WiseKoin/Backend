@@ -39,7 +39,7 @@ public class ReceiptService {
         return parseGeminiResponse(responseRaw);
     }
 
-    String validateAndNormalizeMimeType(MultipartFile file) {
+    private String validateAndNormalizeMimeType(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Uploaded file cannot be empty.");
         }
@@ -66,7 +66,7 @@ public class ReceiptService {
             "contents", List.of(
                 Map.of(
                     "parts", List.of(
-                        Map.of("text", "Extract store name, category of expenditure, and total payment amount from this receipt accurately."),
+                        Map.of("text", "Extract store name, category of expenditure (must be strictly one of: Food, Drinks, Transport, Accommodation), and total payment amount from this receipt accurately."),
                         Map.of("inline_data", Map.of(
                             "mime_type", mimeType,
                             "data", base64Image
@@ -81,7 +81,10 @@ public class ReceiptService {
                     "type", "OBJECT",
                     "properties", Map.of(
                         "store_name", Map.of("type", "STRING"),
-                        "category", Map.of("type", "STRING"),
+                        "category", Map.of(
+                            "type", "STRING",
+                            "enum", List.of("Food", "Drinks", "Transport", "Accommodation")
+                        ),
                         "amount", Map.of("type", "NUMBER")
                     ),
                     "required", List.of("store_name", "category", "amount")
