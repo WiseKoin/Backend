@@ -28,7 +28,6 @@ public class TransactionRequest {
 
     private String note;
 
-    @NotNull
     private LocalDateTime transactionDate;
 
 }
