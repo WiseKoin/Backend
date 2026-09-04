@@ -1,5 +1,6 @@
 package com.wisekoin.backend.module.wallet;
 
+import com.wisekoin.backend.module.common.exception.InsufficientBalanceException;
 import com.wisekoin.backend.module.user.User;
 import com.wisekoin.backend.module.user.UserRepository;
 import jakarta.transaction.Transactional;
@@ -36,7 +37,13 @@ public class WalletService {
     public void updateBalance(Long walletId, BigDecimal amount) {
         Wallet wallet = walletRepository.findById(walletId)
                 .orElseThrow(() -> new RuntimeException("Wallet not found"));
-        wallet.setBalance(wallet.getBalance().add(amount));
+
+        BigDecimal newBalance = wallet.getBalance().add(amount);
+        if (newBalance.compareTo(BigDecimal.ZERO) < 0) {
+            throw new InsufficientBalanceException("Insufficient balance in the wallet");
+        }
+
+        wallet.setBalance(newBalance);
         walletRepository.save(wallet);
     }
 
