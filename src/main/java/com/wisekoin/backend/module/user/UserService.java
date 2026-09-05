@@ -1,5 +1,6 @@
 package com.wisekoin.backend.module.user;
 
+import com.wisekoin.backend.module.category.CategoryService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -9,10 +10,13 @@ import org.springframework.stereotype.Service;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final CategoryService categoryService;
 
     public User getUserByEmail(String email) {
-        return userRepository.findByEmail(email)
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
+        categoryService.seedInitialCategories(user.getId());
+        return user;
     }
 
     public boolean existsByEmail(String email) {

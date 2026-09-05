@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -85,6 +86,15 @@ public class CategoryService {
             createDefaultCategories(userId);
         }
         return categoryRepository.findAllByTypeAndUserId(type, userId);
+    }
+
+    public void seedInitialCategories(Long userId) {
+        if (!categoryRepository.existsByTypeAndUserId(Category.CategoryType.LEND, userId)) {
+            createCategory(userId, "Lend", Category.CategoryType.LEND, null);
+        }
+        if (!categoryRepository.existsByTypeAndUserId(Category.CategoryType.BORROW, userId)) {
+            createCategory(userId, "Borrow", Category.CategoryType.BORROW, null);
+        }
     }
 
 }

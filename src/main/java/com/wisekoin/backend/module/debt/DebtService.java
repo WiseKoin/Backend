@@ -3,7 +3,7 @@ package com.wisekoin.backend.module.debt;
 import com.wisekoin.backend.module.common.exception.BadRequestException;
 import com.wisekoin.backend.module.common.exception.ResourceNotFoundException;
 import com.wisekoin.backend.module.transaction.Transaction;
-import com.wisekoin.backend.module.transaction.TransactionRepository;
+import com.wisekoin.backend.module.transaction.TransactionService;
 import com.wisekoin.backend.module.transaction.dto.TransactionRequest;
 import com.wisekoin.backend.module.debt.dto.DebtRequest;
 import com.wisekoin.backend.module.debt.dto.DebtRepaymentRequest;
@@ -25,7 +25,7 @@ public class DebtService {
 
     private final DebtRepository debtRepository;
     private final UserRepository userRepository;
-    private final TransactionRepository transactionRepository;
+    private final TransactionService transactionService;
 
     public Debt createDebt(Long userId, DebtRequest request) {
         Debt debt = new Debt();
@@ -85,16 +85,7 @@ public class DebtService {
                 : "Repayment - " + debt.getCounterpartName());
         txRequest.setDebtId(debtId);
 
-        Transaction transaction = new Transaction();
-        User userProxy = userRepository.getReferenceById(userId);
-        transaction.setUser(userProxy);
-        transaction.setAmount(txRequest.getAmount());
-        transaction.setType(txRequest.getType());
-        transaction.setNote(txRequest.getNote());
-        transaction.setDebt(debtRepository.getReferenceById(debtId));
-        transaction.setTransactionDate(java.time.LocalDateTime.now());
-
-        transactionRepository.save(transaction);
+        transactionService.createTransaction(userId, txRequest);
 
         return getDebtById(userId, debtId);
     }

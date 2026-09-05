@@ -36,7 +36,9 @@ public class Category {
 
     public enum CategoryType {
         INCOME,
-        EXPENSE
+        EXPENSE,
+        LEND,
+        BORROW
     }
 
 }
