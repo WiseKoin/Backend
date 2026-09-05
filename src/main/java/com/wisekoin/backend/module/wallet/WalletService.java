@@ -30,7 +30,16 @@ public class WalletService {
     }
 
     public List<Wallet> getWalletsByUser(Long userId) {
-        return walletRepository.findAllByUserId(userId);
+        List<Wallet> wallets = walletRepository.findAllByUserId(userId);
+        if (wallets.isEmpty()) {
+            createDefaultWallet(userId);
+            wallets = walletRepository.findAllByUserId(userId);
+        }
+        return wallets;
+    }
+
+    public Wallet createDefaultWallet(Long userId) {
+        return createWallet(userId, "Default", Wallet.WalletType.CASH, BigDecimal.ZERO);
     }
 
     @Transactional
