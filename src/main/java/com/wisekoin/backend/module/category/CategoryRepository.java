@@ -8,4 +8,6 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
 
     List<Category> findAllByTypeAndUserId(Category.CategoryType type, Long userId);
 
+    List<Category> findAllByUserId(Long userId);
+
 }

@@ -23,6 +23,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final WalletService walletService;
+    private final com.wisekoin.backend.module.category.CategoryService categoryService;
 
     public AuthResponse register(@RequestBody RegisterRequest registerRequest) {
         if (userService.existsByEmail(registerRequest.getEmail())) {
@@ -37,6 +38,7 @@ public class AuthService {
         );
 
         walletService.createDefaultWallet(newUser.getId());
+        categoryService.createDefaultCategories(newUser.getId());
 
         String accessToken = jwtTokenProvider.generateToken(newUser.getEmail());
         return new AuthResponse(accessToken);
