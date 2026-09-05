@@ -19,7 +19,8 @@ public class WalletEventListener {
     public void handleTransactionCreated(TransactionCreatedEvent event) {
         BigDecimal amountToUpdate = event.getAmount();
 
-        if (Transaction.TransactionType.EXPENSE.equals(event.getType())) {
+        if (Transaction.TransactionType.EXPENSE.equals(event.getType()) ||
+                Transaction.TransactionType.TRANSFER.equals(event.getType())) {
             amountToUpdate = amountToUpdate.negate();
         }
 

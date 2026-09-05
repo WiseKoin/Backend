@@ -34,6 +34,12 @@ public class TransactionSpecification {
             if (filter.getType() != null) {
                 predicates.add(criteriaBuilder.equal(root.get("type"), filter.getType()));
             }
+            if (filter.getDebtId() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("debt").get("id"), filter.getDebtId()));
+            }
+            if (filter.getGoalId() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("goal").get("id"), filter.getGoalId()));
+            }
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
         };

@@ -3,6 +3,12 @@ package com.wisekoin.backend.module.transaction;
 import com.wisekoin.backend.module.category.Category;
 import com.wisekoin.backend.module.category.CategoryRepository;
 import com.wisekoin.backend.module.common.event.TransactionCreatedEvent;
+import com.wisekoin.backend.module.common.exception.BadRequestException;
+import com.wisekoin.backend.module.common.exception.ResourceNotFoundException;
+import com.wisekoin.backend.module.debt.Debt;
+import com.wisekoin.backend.module.debt.DebtRepository;
+import com.wisekoin.backend.module.goal.Goal;
+import com.wisekoin.backend.module.goal.GoalRepository;
 import com.wisekoin.backend.module.transaction.dto.MonthlyStatsResponse;
 import com.wisekoin.backend.module.transaction.dto.TransactionFilterRequest;
 import com.wisekoin.backend.module.transaction.dto.TransactionRequest;
@@ -34,17 +40,46 @@ public class TransactionService {
     private final UserRepository userRepository;
     private final WalletRepository walletRepository;
     private final CategoryRepository categoryRepository;
+    private final DebtRepository debtRepository;
+    private final GoalRepository goalRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public Transaction createTransaction(Long userId, TransactionRequest request) {
         Wallet wallet = walletRepository.findById(request.getWalletId())
                 .filter(w -> w.getUser().getId().equals(userId))
-                .orElseThrow(() -> new RuntimeException("Wallet not found or access denied"));
+                .orElseThrow(() -> new ResourceNotFoundException("Wallet not found or access denied"));
 
         Category category = categoryRepository.findById(request.getCategoryId())
                 .filter(c -> c.getUser().getId().equals(userId))
-                .orElseThrow(() -> new RuntimeException("Category not found or access denied"));
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found or access denied"));
+
+        if (request.getDebtId() != null && request.getGoalId() != null) {
+            throw new BadRequestException("Transaction cannot be linked to both Debt and Goal");
+        }
+
+        if (request.getDebtId() != null) {
+            Debt debt = debtRepository.findById(request.getDebtId())
+                    .filter(d -> d.getUser().getId().equals(userId))
+                    .orElseThrow(() -> new ResourceNotFoundException("Debt not found or access denied"));
+
+            if (debt.getType() == Debt.DebtType.LEND && request.getType() != Transaction.TransactionType.INCOME) {
+                throw new BadRequestException("LEND debt repayment must have INCOME type");
+            }
+            if (debt.getType() == Debt.DebtType.BORROW && request.getType() != Transaction.TransactionType.EXPENSE) {
+                throw new BadRequestException("BORROW debt repayment must have EXPENSE type");
+            }
+        }
+
+        if (request.getGoalId() != null) {
+            Goal goal = goalRepository.findById(request.getGoalId())
+                    .filter(g -> g.getUser().getId().equals(userId))
+                    .orElseThrow(() -> new ResourceNotFoundException("Goal not found or access denied"));
+
+            if (request.getType() != Transaction.TransactionType.TRANSFER) {
+                throw new BadRequestException("Goal funding must use TRANSFER type");
+            }
+        }
 
         Transaction newTransaction = new Transaction();
         User userProxy = userRepository.getReferenceById(userId);
@@ -61,12 +96,24 @@ public class TransactionService {
                         : LocalDateTime.now()
         );
 
+        if (request.getDebtId() != null) {
+            Debt debt = debtRepository.getReferenceById(request.getDebtId());
+            newTransaction.setDebt(debt);
+        }
+
+        if (request.getGoalId() != null) {
+            Goal goal = goalRepository.getReferenceById(request.getGoalId());
+            newTransaction.setGoal(goal);
+        }
+
         Transaction savedTransaction = transactionRepository.save(newTransaction);
 
         eventPublisher.publishEvent(new TransactionCreatedEvent(
                 wallet.getId(),
                 savedTransaction.getAmount(),
-                savedTransaction.getType()
+                savedTransaction.getType(),
+                request.getDebtId(),
+                request.getGoalId()
         ));
 
         return savedTransaction;

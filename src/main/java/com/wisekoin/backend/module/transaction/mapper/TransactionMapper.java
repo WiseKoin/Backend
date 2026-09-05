@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 public class TransactionMapper {
 
     public TransactionResponse toResponse(Transaction transaction) {
-        return TransactionResponse.builder()
+        TransactionResponse.TransactionResponseBuilder builder = TransactionResponse.builder()
                 .id(transaction.getId())
                 .amount(transaction.getAmount())
                 .type(transaction.getType())
@@ -22,8 +22,23 @@ public class TransactionMapper {
                         .id(transaction.getCategory().getId())
                         .name(transaction.getCategory().getName())
                         .icon(transaction.getCategory().getIcon())
-                        .build())
-                .build();
+                        .build());
+
+        if (transaction.getDebt() != null) {
+            builder.debt(TransactionResponse.DebtInfo.builder()
+                    .id(transaction.getDebt().getId())
+                    .counterpartName(transaction.getDebt().getCounterpartName())
+                    .build());
+        }
+
+        if (transaction.getGoal() != null) {
+            builder.goal(TransactionResponse.GoalInfo.builder()
+                    .id(transaction.getGoal().getId())
+                    .name(transaction.getGoal().getName())
+                    .build());
+        }
+
+        return builder.build();
     }
 
 }

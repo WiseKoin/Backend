@@ -13,5 +13,7 @@ public class TransactionCreatedEvent {
     private Long walletId;
     private BigDecimal amount;
     private Transaction.TransactionType type;
+    private Long debtId;
+    private Long goalId;
 
 }

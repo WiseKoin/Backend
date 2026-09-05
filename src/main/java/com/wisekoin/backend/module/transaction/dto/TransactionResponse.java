@@ -19,6 +19,8 @@ public class TransactionResponse {
 
     private WalletInfo wallet;
     private CategoryInfo category;
+    private DebtInfo debt;
+    private GoalInfo goal;
 
     @Getter
     @Builder
@@ -33,6 +35,20 @@ public class TransactionResponse {
         private Long id;
         private String name;
         private String icon;
+    }
+
+    @Getter
+    @Builder
+    public static class DebtInfo {
+        private Long id;
+        private String counterpartName;
+    }
+
+    @Getter
+    @Builder
+    public static class GoalInfo {
+        private Long id;
+        private String name;
     }
 
 }

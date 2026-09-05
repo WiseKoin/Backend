@@ -1,8 +1,10 @@
 package com.wisekoin.backend.module.transaction;
 
 import com.wisekoin.backend.module.category.Category;
+import com.wisekoin.backend.module.goal.Goal;
 import com.wisekoin.backend.module.user.User;
 import com.wisekoin.backend.module.wallet.Wallet;
+import com.wisekoin.backend.module.debt.Debt;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -33,6 +35,14 @@ public class Transaction {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "debt_id")
+    private Debt debt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "goal_id")
+    private Goal goal;
 
     @Column(nullable = false, precision = 19, scale = 4)
     private BigDecimal amount;

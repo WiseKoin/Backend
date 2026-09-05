@@ -20,4 +20,8 @@ public class TransactionFilterRequest {
 
     private Transaction.TransactionType type;
 
+    private Long debtId;
+
+    private Long goalId;
+
 }

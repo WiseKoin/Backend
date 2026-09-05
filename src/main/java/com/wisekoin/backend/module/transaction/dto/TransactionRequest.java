@@ -30,4 +30,8 @@ public class TransactionRequest {
 
     private LocalDateTime transactionDate;
 
+    private Long debtId;
+
+    private Long goalId;
+
 }

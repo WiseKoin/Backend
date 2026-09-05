@@ -1,0 +1,57 @@
+package com.wisekoin.backend.module.debt;
+
+import com.wisekoin.backend.module.auth.security.CustomUserDetails;
+import com.wisekoin.backend.module.debt.dto.DebtRepaymentRequest;
+import com.wisekoin.backend.module.debt.dto.DebtRequest;
+import com.wisekoin.backend.module.debt.dto.DebtResponse;
+import com.wisekoin.backend.module.debt.mapper.DebtMapper;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/debts")
+@RequiredArgsConstructor
+@Slf4j
+public class DebtController {
+
+    private final DebtService debtService;
+    private final DebtMapper debtMapper;
+
+    @PostMapping
+    public ResponseEntity<DebtResponse> createDebt(
+            @Valid @RequestBody DebtRequest request,
+            @AuthenticationPrincipal CustomUserDetails currentUser
+    ) {
+        Debt debt = debtService.createDebt(currentUser.getId(), request);
+        return ResponseEntity.ok(debtMapper.toResponse(debt));
+    }
+
+    @GetMapping
+    public ResponseEntity<List<DebtResponse>> getDebts(
+            @RequestParam(required = false) Debt.DebtStatus status,
+            @AuthenticationPrincipal CustomUserDetails currentUser
+    ) {
+        List<Debt> debts = debtService.getDebts(currentUser.getId(), status);
+        List<DebtResponse> responses = debts.stream()
+                .map(debtMapper::toResponse)
+                .toList();
+        return ResponseEntity.ok(responses);
+    }
+
+    @PostMapping("/{id}/repay")
+    public ResponseEntity<DebtResponse> repayDebt(
+            @PathVariable Long id,
+            @Valid @RequestBody DebtRepaymentRequest request,
+            @AuthenticationPrincipal CustomUserDetails currentUser
+    ) {
+        Debt debt = debtService.repay(currentUser.getId(), id, request);
+        return ResponseEntity.ok(debtMapper.toResponse(debt));
+    }
+
+}
