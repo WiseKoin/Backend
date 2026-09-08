@@ -40,7 +40,6 @@ public class AuthService {
 
         walletService.createDefaultWallet(newUser.getId());
         categoryService.createDefaultCategories(newUser.getId());
-        categoryService.seedInitialCategories(newUser.getId());
 
         String accessToken = jwtTokenProvider.generateToken(newUser.getEmail());
         return new AuthResponse(accessToken);
@@ -54,7 +53,6 @@ public class AuthService {
         }
 
         String accessToken = jwtTokenProvider.generateToken(user.getEmail());
-        categoryService.seedInitialCategories(user.getId());
         return new AuthResponse(accessToken);
     }
 

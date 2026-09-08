@@ -15,7 +15,6 @@ public class UserService {
     public User getUserByEmail(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        categoryService.seedInitialCategories(user.getId());
         return user;
     }
 

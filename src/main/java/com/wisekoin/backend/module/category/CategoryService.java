@@ -22,7 +22,6 @@ public class CategoryService {
     public Category createCategory(Long userId, String name, Category.CategoryType type, String icon) {
         Category newCategory = new Category();
 
-        // getReferenceById() does not need to query SELECT as findByID()
         User userProxy = userRepository.getReferenceById(userId);
 
         newCategory.setUser(userProxy);
@@ -50,7 +49,9 @@ public class CategoryService {
                 createCategoryEntity(userProxy, "Education", Category.CategoryType.EXPENSE, "education"),
                 createCategoryEntity(userProxy, "Salary", Category.CategoryType.INCOME, "salary"),
                 createCategoryEntity(userProxy, "Bonus", Category.CategoryType.INCOME, "income"),
-                createCategoryEntity(userProxy, "Other Income", Category.CategoryType.INCOME, "money")
+                createCategoryEntity(userProxy, "Other Income", Category.CategoryType.INCOME, "money"),
+                createCategoryEntity(userProxy, "Lend", Category.CategoryType.LEND, "lend"),
+                createCategoryEntity(userProxy, "Borrow", Category.CategoryType.BORROW, "borrow")
         );
 
         List<Category> toSave = defaults.stream()
@@ -87,14 +88,4 @@ public class CategoryService {
         }
         return categoryRepository.findAllByTypeAndUserId(type, userId);
     }
-
-    public void seedInitialCategories(Long userId) {
-        if (!categoryRepository.existsByTypeAndUserId(Category.CategoryType.LEND, userId)) {
-            createCategory(userId, "Lend", Category.CategoryType.LEND, null);
-        }
-        if (!categoryRepository.existsByTypeAndUserId(Category.CategoryType.BORROW, userId)) {
-            createCategory(userId, "Borrow", Category.CategoryType.BORROW, null);
-        }
-    }
-
 }
