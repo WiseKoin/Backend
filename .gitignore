@@ -32,3 +32,6 @@ build/
 ### VS Code ###
 .vscode/
 .env
+.env.development
+.env.production
+.neon_local/

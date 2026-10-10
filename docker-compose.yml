@@ -1,0 +1,48 @@
+name: wisekoin-dev
+
+services:
+  neon-local:
+    image: ${NEON_LOCAL_IMAGE:-neondatabase/neon_local:latest}
+    restart: unless-stopped
+    ports:
+      - "${NEON_LOCAL_PORT:-5432}:5432"
+    environment:
+      NEON_API_KEY: ${NEON_API_KEY:?Set NEON_API_KEY in .env.development}
+      NEON_PROJECT_ID: ${NEON_PROJECT_ID:?Set NEON_PROJECT_ID in .env.development}
+      PARENT_BRANCH_ID: ${PARENT_BRANCH_ID:?Set PARENT_BRANCH_ID in .env.development}
+      DELETE_BRANCH: ${DELETE_BRANCH:-true}
+
+  database-ready:
+    image: postgres:17-alpine
+    depends_on:
+      - neon-local
+    environment:
+      NEON_DATABASE: ${NEON_DATABASE:-neondb}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        until pg_isready -h neon-local -p 5432 -U neon -d "$${NEON_DATABASE}";
+        do sleep 2; done
+    restart: "no"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      database-ready:
+        condition: service_completed_successfully
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      PORT: 8080
+      DB_URL: jdbc:postgresql://neon-local:5432/${NEON_DATABASE:-neondb}?sslmode=disable
+      DB_USERNAME: neon
+      DB_PASSWORD: npg
+      JPA_DDL_AUTO: update
+      JPA_SHOW_SQL: ${JPA_SHOW_SQL:-true}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.development}
+      VISION_LANGUAGE_API_KEY: ${VISION_LANGUAGE_API_KEY:-}
+    security_opt:
+      - no-new-privileges:true

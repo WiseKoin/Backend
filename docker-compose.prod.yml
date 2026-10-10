@@ -1,0 +1,20 @@
+name: wisekoin-prod
+
+services:
+  app:
+    image: ${DOCKER_IMAGE:?Set DOCKER_IMAGE in .env.production}
+    pull_policy: always
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      PORT: 8080
+      DB_URL: ${DB_URL:?Set the Neon JDBC URL in .env.production}
+      DB_USERNAME: ${DB_USERNAME:?Set the Neon database user in .env.production}
+      DB_PASSWORD: ${DB_PASSWORD:?Set the Neon database password in .env.production}
+      JPA_DDL_AUTO: ${JPA_DDL_AUTO:-update}
+      JPA_SHOW_SQL: "false"
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.production}
+      VISION_LANGUAGE_API_KEY: ${VISION_LANGUAGE_API_KEY:-}
+    security_opt:
+      - no-new-privileges:true

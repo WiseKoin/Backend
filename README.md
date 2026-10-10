@@ -124,6 +124,35 @@ mvnw spring-boot:run
 
 The server starts on port 8080 by default.
 
+### Docker development with Neon Local
+
+Copy `.env.development.example` to `.env.development`, provide the Neon API,
+project, and parent branch values, then run:
+
+```bash
+docker compose --env-file .env.development up --build
+```
+
+Neon Local creates an ephemeral child branch and exposes its PostgreSQL proxy on
+localhost port `5432`. The application connects to the proxy over the Compose
+network. By default, the ephemeral branch is deleted when Neon Local stops.
+
+### Docker production with Neon Cloud
+
+Copy `.env.production.example` to `.env.production`, set the published Docker
+Hub image and Neon cloud JDBC credentials, then run:
+
+```bash
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d
+```
+
+The production configuration connects directly to Neon Cloud and does not run
+the Neon Local proxy.
+
+The Docker publishing workflow requires repository secrets named
+`DOCKER_USERNAME` and `DOCKER_PASSWORD`. Pushes to `main` publish `latest`,
+`main`, and commit-SHA tags; `v*` Git tags also publish semantic-version tags.
+
 ## Database
 
 The application uses `spring.jpa.hibernate.ddl-auto=update` for development. A Flyway migration (`V1__fix_categories_type_check.sql`) is included for schema fixes.
