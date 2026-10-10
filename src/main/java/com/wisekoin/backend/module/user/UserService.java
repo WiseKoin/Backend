@@ -2,6 +2,7 @@ package com.wisekoin.backend.module.user;
 
 import com.wisekoin.backend.module.category.CategoryService;
 import jakarta.transaction.Transactional;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +18,10 @@ public class UserService {
                         .findByEmail(email)
                         .orElseThrow(() -> new RuntimeException("User not found"));
         return user;
+    }
+
+    public Optional<User> findUserByEmail(String email) {
+        return userRepository.findByEmail(email);
     }
 
     public boolean existsByEmail(String email) {

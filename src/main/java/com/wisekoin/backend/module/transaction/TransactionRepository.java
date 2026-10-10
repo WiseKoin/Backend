@@ -4,16 +4,24 @@ import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 public interface TransactionRepository
         extends JpaRepository<Transaction, Long>, JpaSpecificationExecutor<Transaction> {
 
+    @EntityGraph(attributePaths = {"wallet", "category", "debt", "goal", "destinationWallet"})
     Page<Transaction> findAllByUserIdOrderByTransactionDateDesc(Long userId, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"wallet", "category", "debt", "goal", "destinationWallet"})
     List<Transaction> findAllByUserIdAndTransactionDateBetween(
             Long userId, LocalDateTime startDate, LocalDateTime endDate);
+
+    @Override
+    @EntityGraph(attributePaths = {"wallet", "category", "debt", "goal", "destinationWallet"})
+    Page<Transaction> findAll(Specification<Transaction> spec, Pageable pageable);
 
     boolean existsByWalletId(Long walletId);
 

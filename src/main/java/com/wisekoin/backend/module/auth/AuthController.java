@@ -3,6 +3,7 @@ package com.wisekoin.backend.module.auth;
 import com.wisekoin.backend.module.auth.dto.AuthResponse;
 import com.wisekoin.backend.module.auth.dto.LoginRequest;
 import com.wisekoin.backend.module.auth.dto.RegisterRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -19,22 +20,13 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    public ResponseEntity<Object> register(@RequestBody RegisterRequest registerRequest) {
-        try {
-            AuthResponse response = authService.register(registerRequest);
-            return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+    public ResponseEntity<AuthResponse> register(
+            @Valid @RequestBody RegisterRequest registerRequest) {
+        return ResponseEntity.ok(authService.register(registerRequest));
     }
 
     @PostMapping("/login")
-    public ResponseEntity<Object> login(@RequestBody LoginRequest loginRequest) {
-        try {
-            AuthResponse response = authService.login(loginRequest);
-            return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest loginRequest) {
+        return ResponseEntity.ok(authService.login(loginRequest));
     }
 }
