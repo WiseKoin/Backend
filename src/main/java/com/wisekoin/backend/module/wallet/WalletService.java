@@ -3,6 +3,7 @@ package com.wisekoin.backend.module.wallet;
 import com.wisekoin.backend.module.common.exception.BadRequestException;
 import com.wisekoin.backend.module.common.exception.InsufficientBalanceException;
 import com.wisekoin.backend.module.common.exception.ResourceNotFoundException;
+import com.wisekoin.backend.module.recurring.RecurringTransactionRepository;
 import com.wisekoin.backend.module.transaction.TransactionRepository;
 import com.wisekoin.backend.module.user.User;
 import com.wisekoin.backend.module.user.UserRepository;
@@ -20,6 +21,7 @@ public class WalletService {
     private final WalletRepository walletRepository;
     private final UserRepository userRepository;
     private final TransactionRepository transactionRepository;
+    private final RecurringTransactionRepository recurringTransactionRepository;
 
     public Wallet createWallet(
             Long userId, String name, Wallet.WalletType walletType, BigDecimal initialBalance) {
@@ -78,8 +80,10 @@ public class WalletService {
     public void deleteWallet(Long userId, Long walletId) {
         Wallet wallet = getOwnedWallet(userId, walletId);
         if (transactionRepository.existsByWalletId(walletId)
-                || transactionRepository.existsByDestinationWalletId(walletId)) {
-            throw new BadRequestException("Cannot delete a wallet that is used by transactions");
+                || transactionRepository.existsByDestinationWalletId(walletId)
+                || recurringTransactionRepository.existsByWalletId(walletId)) {
+            throw new BadRequestException(
+                    "Cannot delete a wallet that is used by transactions or recurring transactions");
         }
         walletRepository.delete(wallet);
     }

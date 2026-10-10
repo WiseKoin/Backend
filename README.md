@@ -76,6 +76,30 @@ and the receiving wallet in `destinationWalletId`:
 }
 ```
 
+### Recurring Transactions
+
+- `GET /api/recurring-transactions` — List monthly expense templates
+- `GET /api/recurring-transactions/{id}` — Get one template
+- `POST /api/recurring-transactions` — Schedule a monthly expense
+- `PUT/PATCH /api/recurring-transactions/{id}` — Update, pause, or resume a template
+- `DELETE /api/recurring-transactions/{id}` — Delete a template
+
+The daily scheduler creates normal `EXPENSE` transactions for every due date,
+so wallet balance listeners apply the same validation and updates as manual
+transactions. A day such as `31` is clamped to the last day of shorter months.
+
+```json
+{
+  "walletId": 1,
+  "categoryId": 2,
+  "amount": 149000,
+  "note": "Netflix",
+  "dayOfMonth": 12,
+  "startDate": "2026-10-12",
+  "active": true
+}
+```
+
 ### Debts
 - `GET /api/debts` — List debts for current user
 - `POST /api/debts` — Create a new debt (lend or borrow)
@@ -115,6 +139,14 @@ JWT_SECRET=your_jwt_secret_min_256_bits
 JWT_EXPIRATION=900000
 JWT_REFRESH_EXPIRATION=2592000000
 VISION_LANGUAGE_API_KEY=your_gemini_api_key
+APP_TIME_ZONE=Asia/Ho_Chi_Minh
+FORWARD_HEADERS_STRATEGY=native
+RECURRING_TRANSACTIONS_CRON=0 5 0 * * *
+RATE_LIMIT_ENABLED=true
+RATE_LIMIT_WINDOW_SECONDS=60
+RATE_LIMIT_AI_REQUESTS=10
+RATE_LIMIT_AUTH_REQUESTS=20
+RATE_LIMIT_API_REQUESTS=120
 ```
 
 > **Note:** The `.env` file is not committed to version control. Copy `.env.example` if available.
@@ -155,6 +187,15 @@ docker compose --env-file .env.production -f docker-compose.prod.yml up -d
 
 The production configuration connects directly to Neon Cloud and does not run
 the Neon Local proxy.
+
+### Rate limits
+
+Rate limits use authenticated user IDs where available and client IP addresses
+for anonymous authentication requests. Defaults are 10 AI requests, 20 auth
+requests, and 120 other API requests per 60-second window. Rejected calls return
+HTTP `429` with structured JSON plus `Retry-After` and `X-RateLimit-*` headers.
+The counters are held in-process; use a shared Redis-backed limiter if the API is
+deployed with multiple application replicas.
 
 ### Android client sessions
 

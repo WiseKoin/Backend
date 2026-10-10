@@ -14,6 +14,7 @@ import com.wisekoin.backend.module.common.exception.BadCredentialsException;
 import com.wisekoin.backend.module.common.exception.BadRequestException;
 import com.wisekoin.backend.module.debt.DebtRepository;
 import com.wisekoin.backend.module.goal.GoalRepository;
+import com.wisekoin.backend.module.recurring.RecurringTransactionRepository;
 import com.wisekoin.backend.module.transaction.TransactionRepository;
 import com.wisekoin.backend.module.wallet.WalletRepository;
 import java.util.Optional;
@@ -26,6 +27,7 @@ class UserServiceTest {
     private UserRepository userRepository;
     private PasswordEncoder passwordEncoder;
     private RefreshTokenService refreshTokenService;
+    private RecurringTransactionRepository recurringTransactionRepository;
     private TransactionRepository transactionRepository;
     private DebtRepository debtRepository;
     private GoalRepository goalRepository;
@@ -38,6 +40,7 @@ class UserServiceTest {
         userRepository = mock(UserRepository.class);
         passwordEncoder = mock(PasswordEncoder.class);
         refreshTokenService = mock(RefreshTokenService.class);
+        recurringTransactionRepository = mock(RecurringTransactionRepository.class);
         transactionRepository = mock(TransactionRepository.class);
         debtRepository = mock(DebtRepository.class);
         goalRepository = mock(GoalRepository.class);
@@ -48,6 +51,7 @@ class UserServiceTest {
                         userRepository,
                         passwordEncoder,
                         refreshTokenService,
+                        recurringTransactionRepository,
                         transactionRepository,
                         debtRepository,
                         goalRepository,
@@ -116,6 +120,7 @@ class UserServiceTest {
         InOrder deletionOrder =
                 inOrder(
                         refreshTokenService,
+                        recurringTransactionRepository,
                         transactionRepository,
                         debtRepository,
                         goalRepository,
@@ -123,6 +128,7 @@ class UserServiceTest {
                         walletRepository,
                         userRepository);
         deletionOrder.verify(refreshTokenService).revokeAllForUser(user.getId());
+        deletionOrder.verify(recurringTransactionRepository).deleteAllByUserId(user.getId());
         deletionOrder.verify(transactionRepository).deleteAllByUserId(user.getId());
         deletionOrder.verify(debtRepository).deleteAllByUserId(user.getId());
         deletionOrder.verify(goalRepository).deleteAllByUserId(user.getId());

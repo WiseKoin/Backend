@@ -7,6 +7,7 @@ import com.wisekoin.backend.module.common.exception.BadRequestException;
 import com.wisekoin.backend.module.common.exception.ResourceNotFoundException;
 import com.wisekoin.backend.module.debt.DebtRepository;
 import com.wisekoin.backend.module.goal.GoalRepository;
+import com.wisekoin.backend.module.recurring.RecurringTransactionRepository;
 import com.wisekoin.backend.module.transaction.TransactionRepository;
 import com.wisekoin.backend.module.wallet.WalletRepository;
 import jakarta.transaction.Transactional;
@@ -23,6 +24,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenService refreshTokenService;
+    private final RecurringTransactionRepository recurringTransactionRepository;
     private final TransactionRepository transactionRepository;
     private final DebtRepository debtRepository;
     private final GoalRepository goalRepository;
@@ -98,6 +100,7 @@ public class UserService {
         verifyPassword(user, currentPassword);
 
         refreshTokenService.revokeAllForUser(userId);
+        recurringTransactionRepository.deleteAllByUserId(userId);
         transactionRepository.deleteAllByUserId(userId);
         debtRepository.deleteAllByUserId(userId);
         goalRepository.deleteAllByUserId(userId);

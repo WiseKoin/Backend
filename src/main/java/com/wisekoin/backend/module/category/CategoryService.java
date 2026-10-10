@@ -4,6 +4,7 @@ import com.wisekoin.backend.module.category.dto.CategoryRequest;
 import com.wisekoin.backend.module.category.dto.CategoryUpdateRequest;
 import com.wisekoin.backend.module.common.exception.BadRequestException;
 import com.wisekoin.backend.module.common.exception.ResourceNotFoundException;
+import com.wisekoin.backend.module.recurring.RecurringTransactionRepository;
 import com.wisekoin.backend.module.transaction.TransactionRepository;
 import com.wisekoin.backend.module.user.User;
 import com.wisekoin.backend.module.user.UserRepository;
@@ -21,6 +22,7 @@ public class CategoryService {
     private final CategoryRepository categoryRepository;
     private final UserRepository userRepository;
     private final TransactionRepository transactionRepository;
+    private final RecurringTransactionRepository recurringTransactionRepository;
 
     public Category createCategory(
             Long userId, String name, Category.CategoryType type, String icon) {
@@ -111,6 +113,7 @@ public class CategoryService {
 
     public Category updateCategory(Long userId, Long categoryId, CategoryRequest request) {
         Category category = getOwnedCategory(userId, categoryId);
+        validateRecurringCategoryType(categoryId, request.getType());
         category.setName(request.getName());
         category.setType(request.getType());
         category.setIcon(request.getIcon());
@@ -126,6 +129,7 @@ public class CategoryService {
             category.setName(request.getName());
         }
         if (request.getType() != null) {
+            validateRecurringCategoryType(categoryId, request.getType());
             category.setType(request.getType());
         }
         if (request.isIconSet()) {
@@ -136,10 +140,21 @@ public class CategoryService {
 
     public void deleteCategory(Long userId, Long categoryId) {
         Category category = getOwnedCategory(userId, categoryId);
-        if (transactionRepository.existsByCategoryId(categoryId)) {
-            throw new BadRequestException("Cannot delete a category that is used by transactions");
+        if (transactionRepository.existsByCategoryId(categoryId)
+                || recurringTransactionRepository.existsByCategoryId(categoryId)) {
+            throw new BadRequestException(
+                    "Cannot delete a category that is used by transactions or recurring transactions");
         }
         categoryRepository.delete(category);
+    }
+
+    private void validateRecurringCategoryType(
+            Long categoryId, Category.CategoryType categoryType) {
+        if (categoryType != Category.CategoryType.EXPENSE
+                && recurringTransactionRepository.existsByCategoryId(categoryId)) {
+            throw new BadRequestException(
+                    "A category used by recurring expenses must remain EXPENSE");
+        }
     }
 
     private Category getOwnedCategory(Long userId, Long categoryId) {

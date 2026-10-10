@@ -1,5 +1,6 @@
 package com.wisekoin.backend.config;
 
+import com.wisekoin.backend.config.ratelimit.RateLimitFilter;
 import com.wisekoin.backend.module.auth.jwt.JwtAuthenticationFilter;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -24,6 +25,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @RequiredArgsConstructor
 public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final RateLimitFilter rateLimitFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(
@@ -48,7 +50,8 @@ public class SecurityConfig {
                 .exceptionHandling(
                         exceptions -> exceptions.authenticationEntryPoint(authenticationEntryPoint))
                 .addFilterBefore(
-                        jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                        jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(rateLimitFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }

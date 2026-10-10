@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
+import com.wisekoin.backend.config.ratelimit.RateLimitFilter;
 import com.wisekoin.backend.module.auth.jwt.JwtAuthenticationFilter;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -20,7 +21,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 
 class SecurityConfigTest {
     private final SecurityConfig securityConfig =
-            new SecurityConfig(mock(JwtAuthenticationFilter.class));
+            new SecurityConfig(mock(JwtAuthenticationFilter.class), mock(RateLimitFilter.class));
 
     @Test
     void authenticationEntryPointReturnsStructuredUnauthorizedJson() throws Exception {
