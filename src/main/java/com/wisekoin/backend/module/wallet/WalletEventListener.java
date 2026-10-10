@@ -20,6 +20,9 @@ public class WalletEventListener {
     @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
     public void handleTransactionCreated(TransactionCreatedEvent event) {
         walletService.updateBalance(event.getWalletId(), balanceEffect(event.getAmount(), event.getType()));
+        if (event.getDestinationWalletId() != null) {
+            walletService.updateBalance(event.getDestinationWalletId(), event.getAmount());
+        }
     }
 
     @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
@@ -28,10 +31,16 @@ public class WalletEventListener {
                 event.getOldWalletId(),
                 balanceEffect(event.getOldAmount(), event.getOldType()).negate()
         );
+        if (event.getOldDestinationWalletId() != null) {
+            walletService.updateBalance(event.getOldDestinationWalletId(), event.getOldAmount().negate());
+        }
         walletService.updateBalance(
                 event.getNewWalletId(),
                 balanceEffect(event.getNewAmount(), event.getNewType())
         );
+        if (event.getNewDestinationWalletId() != null) {
+            walletService.updateBalance(event.getNewDestinationWalletId(), event.getNewAmount());
+        }
     }
 
     @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
@@ -40,6 +49,9 @@ public class WalletEventListener {
                 event.getWalletId(),
                 balanceEffect(event.getAmount(), event.getType()).negate()
         );
+        if (event.getDestinationWalletId() != null) {
+            walletService.updateBalance(event.getDestinationWalletId(), event.getAmount().negate());
+        }
     }
 
     private BigDecimal balanceEffect(BigDecimal amount, Transaction.TransactionType type) {

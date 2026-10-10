@@ -51,13 +51,15 @@ public class TransactionService {
     public Transaction createTransaction(Long userId, TransactionRequest request) {
         Wallet wallet = getOwnedWallet(userId, request.getWalletId());
         Category category = getOwnedCategory(userId, request.getCategoryId());
-        validateLinks(userId, request.getType(), request.getDebtId(), request.getGoalId());
+        Wallet destinationWallet = validateLinks(userId, wallet.getId(), request.getType(),
+                request.getDebtId(), request.getGoalId(), request.getDestinationWalletId());
 
         Transaction newTransaction = new Transaction();
         User userProxy = userRepository.getReferenceById(userId);
 
         newTransaction.setUser(userProxy);
         newTransaction.setWallet(wallet);
+        newTransaction.setDestinationWallet(destinationWallet);
         newTransaction.setCategory(category);
         newTransaction.setAmount(request.getAmount());
         newTransaction.setType(request.getType());
@@ -82,6 +84,7 @@ public class TransactionService {
 
         eventPublisher.publishEvent(new TransactionCreatedEvent(
                 wallet.getId(),
+                request.getDestinationWalletId(),
                 savedTransaction.getAmount(),
                 savedTransaction.getType(),
                 request.getDebtId(),
@@ -96,7 +99,7 @@ public class TransactionService {
         Transaction transaction = getOwnedTransaction(userId, transactionId);
         return updateTransaction(transaction, userId, request.getWalletId(), request.getCategoryId(),
                 request.getAmount(), request.getType(), request.getNote(), request.getTransactionDate(),
-                request.getDebtId(), request.getGoalId());
+                request.getDebtId(), request.getGoalId(), request.getDestinationWalletId());
     }
 
     @Transactional
@@ -112,7 +115,10 @@ public class TransactionService {
                 request.isNoteSet() ? request.getNote() : transaction.getNote(),
                 request.getTransactionDate() != null ? request.getTransactionDate() : transaction.getTransactionDate(),
                 request.isDebtIdSet() ? request.getDebtId() : idOf(transaction.getDebt()),
-                request.isGoalIdSet() ? request.getGoalId() : idOf(transaction.getGoal())
+                request.isGoalIdSet() ? request.getGoalId() : idOf(transaction.getGoal()),
+                request.isDestinationWalletIdSet()
+                        ? request.getDestinationWalletId()
+                        : idOf(transaction.getDestinationWallet())
         );
     }
 
@@ -120,7 +126,8 @@ public class TransactionService {
     public void deleteTransaction(Long userId, Long transactionId) {
         Transaction transaction = getOwnedTransaction(userId, transactionId);
         TransactionDeletedEvent event = new TransactionDeletedEvent(
-                transaction.getWallet().getId(), transaction.getAmount(), transaction.getType(),
+                transaction.getWallet().getId(), idOf(transaction.getDestinationWallet()),
+                transaction.getAmount(), transaction.getType(),
                 idOf(transaction.getDebt()), idOf(transaction.getGoal()));
 
         transactionRepository.delete(transaction);
@@ -129,7 +136,8 @@ public class TransactionService {
 
     private Transaction updateTransaction(Transaction transaction, Long userId, Long walletId, Long categoryId,
                                           BigDecimal amount, Transaction.TransactionType type, String note,
-                                          LocalDateTime transactionDate, Long debtId, Long goalId) {
+                                          LocalDateTime transactionDate, Long debtId, Long goalId,
+                                          Long destinationWalletId) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BadRequestException("Amount must be greater than 0");
         }
@@ -139,14 +147,17 @@ public class TransactionService {
 
         Wallet wallet = getOwnedWallet(userId, walletId);
         Category category = getOwnedCategory(userId, categoryId);
-        validateLinks(userId, type, debtId, goalId);
+        Wallet destinationWallet = validateLinks(
+                userId, walletId, type, debtId, goalId, destinationWalletId);
 
         TransactionUpdatedEvent event = new TransactionUpdatedEvent(
-                transaction.getWallet().getId(), transaction.getAmount(), transaction.getType(),
+                transaction.getWallet().getId(), idOf(transaction.getDestinationWallet()),
+                transaction.getAmount(), transaction.getType(),
                 idOf(transaction.getDebt()), idOf(transaction.getGoal()),
-                walletId, amount, type, debtId, goalId);
+                walletId, destinationWalletId, amount, type, debtId, goalId);
 
         transaction.setWallet(wallet);
+        transaction.setDestinationWallet(destinationWallet);
         transaction.setCategory(category);
         transaction.setAmount(amount);
         transaction.setType(type);
@@ -178,9 +189,14 @@ public class TransactionService {
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found or access denied"));
     }
 
-    private void validateLinks(Long userId, Transaction.TransactionType type, Long debtId, Long goalId) {
-        if (debtId != null && goalId != null) {
-            throw new BadRequestException("Transaction cannot be linked to both Debt and Goal");
+    private Wallet validateLinks(Long userId, Long walletId, Transaction.TransactionType type,
+                                 Long debtId, Long goalId, Long destinationWalletId) {
+        int linkedTargets = (debtId != null ? 1 : 0)
+                + (goalId != null ? 1 : 0)
+                + (destinationWalletId != null ? 1 : 0);
+        if (linkedTargets > 1) {
+            throw new BadRequestException(
+                    "Transaction cannot be linked to more than one Debt, Goal, or destination Wallet");
         }
         if (debtId != null) {
             Debt debt = debtRepository.findById(debtId)
@@ -201,6 +217,24 @@ public class TransactionService {
                 throw new BadRequestException("Goal funding must use TRANSFER type");
             }
         }
+        Wallet destinationWallet = null;
+        if (destinationWalletId != null) {
+            destinationWallet = getOwnedWallet(userId, destinationWalletId);
+            if (type != Transaction.TransactionType.TRANSFER) {
+                throw new BadRequestException("Wallet-to-wallet transfers must use TRANSFER type");
+            }
+            if (walletId.equals(destinationWalletId)) {
+                throw new BadRequestException("Source and destination wallets must be different");
+            }
+        }
+        if (type == Transaction.TransactionType.TRANSFER
+                && goalId == null && destinationWalletId == null) {
+            throw new BadRequestException("TRANSFER requires a Goal or destination Wallet");
+        }
+        if (type != Transaction.TransactionType.TRANSFER && destinationWalletId != null) {
+            throw new BadRequestException("Only TRANSFER transactions can have a destination Wallet");
+        }
+        return destinationWallet;
     }
 
     private Long idOf(Debt debt) {
@@ -209,6 +243,10 @@ public class TransactionService {
 
     private Long idOf(Goal goal) {
         return goal == null ? null : goal.getId();
+    }
+
+    private Long idOf(Wallet wallet) {
+        return wallet == null ? null : wallet.getId();
     }
 
     public Page<Transaction> getTransactionsByUser(Long userId, Pageable pageable) {

@@ -16,6 +16,8 @@ public class TransactionRequest {
     @NotNull
     private Long walletId;
 
+    private Long destinationWalletId;
+
     @NotNull
     private Long categoryId;
 

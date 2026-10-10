@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 public class TransactionCreatedEvent {
 
     private Long walletId;
+    private Long destinationWalletId;
     private BigDecimal amount;
     private Transaction.TransactionType type;
     private Long debtId;

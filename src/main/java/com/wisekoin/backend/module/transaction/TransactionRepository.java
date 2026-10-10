@@ -20,6 +20,8 @@ public interface TransactionRepository extends
 
     boolean existsByWalletId(Long walletId);
 
+    boolean existsByDestinationWalletId(Long walletId);
+
     boolean existsByCategoryId(Long categoryId);
 
     boolean existsByDebtId(Long debtId);

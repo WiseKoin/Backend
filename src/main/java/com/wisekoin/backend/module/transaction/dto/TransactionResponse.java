@@ -18,6 +18,7 @@ public class TransactionResponse {
     private LocalDateTime transactionDate;
 
     private WalletInfo wallet;
+    private WalletInfo destinationWallet;
     private CategoryInfo category;
     private DebtInfo debt;
     private GoalInfo goal;

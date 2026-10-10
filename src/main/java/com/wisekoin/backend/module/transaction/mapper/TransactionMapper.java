@@ -31,6 +31,13 @@ public class TransactionMapper {
                     .build());
         }
 
+        if (transaction.getDestinationWallet() != null) {
+            builder.destinationWallet(TransactionResponse.WalletInfo.builder()
+                    .id(transaction.getDestinationWallet().getId())
+                    .name(transaction.getDestinationWallet().getName())
+                    .build());
+        }
+
         if (transaction.getGoal() != null) {
             builder.goal(TransactionResponse.GoalInfo.builder()
                     .id(transaction.getGoal().getId())

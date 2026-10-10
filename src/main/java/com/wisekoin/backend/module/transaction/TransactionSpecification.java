@@ -31,6 +31,12 @@ public class TransactionSpecification {
             if (filter.getCategoryId() != null) {
                 predicates.add(criteriaBuilder.equal(root.get("category").get("id"), filter.getCategoryId()));
             }
+            if (filter.getWalletId() != null) {
+                predicates.add(criteriaBuilder.or(
+                        criteriaBuilder.equal(root.get("wallet").get("id"), filter.getWalletId()),
+                        criteriaBuilder.equal(root.get("destinationWallet").get("id"), filter.getWalletId())
+                ));
+            }
             if (filter.getType() != null) {
                 predicates.add(criteriaBuilder.equal(root.get("type"), filter.getType()));
             }

@@ -78,7 +78,8 @@ public class WalletService {
     @Transactional
     public void deleteWallet(Long userId, Long walletId) {
         Wallet wallet = getOwnedWallet(userId, walletId);
-        if (transactionRepository.existsByWalletId(walletId)) {
+        if (transactionRepository.existsByWalletId(walletId)
+                || transactionRepository.existsByDestinationWalletId(walletId)) {
             throw new BadRequestException("Cannot delete a wallet that is used by transactions");
         }
         walletRepository.delete(wallet);

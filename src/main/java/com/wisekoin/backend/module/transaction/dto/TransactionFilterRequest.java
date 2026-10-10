@@ -18,6 +18,8 @@ public class TransactionFilterRequest {
 
     private Long categoryId;
 
+    private Long walletId;
+
     private Transaction.TransactionType type;
 
     private Long debtId;

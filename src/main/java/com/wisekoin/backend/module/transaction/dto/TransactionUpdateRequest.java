@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 @Setter
 public class TransactionUpdateRequest {
     private Long walletId;
+    private Long destinationWalletId;
     private Long categoryId;
 
     @Positive(message = "Amount must be greater than 0")
@@ -30,6 +31,8 @@ public class TransactionUpdateRequest {
     private boolean goalIdSet;
     @JsonIgnore
     private boolean noteSet;
+    @JsonIgnore
+    private boolean destinationWalletIdSet;
 
     public void setNote(String note) {
         this.note = note;
@@ -44,5 +47,10 @@ public class TransactionUpdateRequest {
     public void setGoalId(Long goalId) {
         this.goalId = goalId;
         this.goalIdSet = true;
+    }
+
+    public void setDestinationWalletId(Long destinationWalletId) {
+        this.destinationWalletId = destinationWalletId;
+        this.destinationWalletIdSet = true;
     }
 }

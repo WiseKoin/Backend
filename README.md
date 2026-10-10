@@ -57,6 +57,20 @@ Spring Boot REST API for the WiseKoin financial management application.
 - `DELETE /api/transactions/{id}` — Delete a transaction and reverse its linked balances
 - `GET /api/transactions/monthly?year={year}` — Get monthly income/expense stats
 
+Wallet-to-wallet transfers use one `TRANSFER` transaction with the source in `walletId`
+and the receiving wallet in `destinationWalletId`:
+
+```json
+{
+  "walletId": 1,
+  "destinationWalletId": 2,
+  "categoryId": 3,
+  "amount": 250000,
+  "type": "TRANSFER",
+  "note": "Move cash to bank"
+}
+```
+
 ### Debts
 - `GET /api/debts` — List debts for current user
 - `POST /api/debts` — Create a new debt (lend or borrow)
