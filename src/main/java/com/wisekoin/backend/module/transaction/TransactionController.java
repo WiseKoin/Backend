@@ -5,6 +5,7 @@ import com.wisekoin.backend.module.transaction.dto.MonthlyStatsResponse;
 import com.wisekoin.backend.module.transaction.dto.TransactionFilterRequest;
 import com.wisekoin.backend.module.transaction.dto.TransactionRequest;
 import com.wisekoin.backend.module.transaction.dto.TransactionResponse;
+import com.wisekoin.backend.module.transaction.dto.TransactionUpdateRequest;
 import com.wisekoin.backend.module.transaction.mapper.TransactionMapper;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -63,6 +64,35 @@ public class TransactionController {
     ) {
         List<MonthlyStatsResponse> stats = transactionService.getYearlyStats(currentUser.getId(), year);
         return ResponseEntity.ok(stats);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<TransactionResponse> updateTransaction(
+            @PathVariable Long id,
+            @Valid @RequestBody TransactionRequest request,
+            @AuthenticationPrincipal CustomUserDetails currentUser
+    ) {
+        return ResponseEntity.ok(transactionMapper.toResponse(
+                transactionService.updateTransaction(currentUser.getId(), id, request)));
+    }
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<TransactionResponse> patchTransaction(
+            @PathVariable Long id,
+            @Valid @RequestBody TransactionUpdateRequest request,
+            @AuthenticationPrincipal CustomUserDetails currentUser
+    ) {
+        return ResponseEntity.ok(transactionMapper.toResponse(
+                transactionService.patchTransaction(currentUser.getId(), id, request)));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteTransaction(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails currentUser
+    ) {
+        transactionService.deleteTransaction(currentUser.getId(), id);
+        return ResponseEntity.noContent().build();
     }
 
 }

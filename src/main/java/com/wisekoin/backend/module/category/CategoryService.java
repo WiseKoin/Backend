@@ -2,6 +2,11 @@ package com.wisekoin.backend.module.category;
 
 import com.wisekoin.backend.module.user.User;
 import com.wisekoin.backend.module.user.UserRepository;
+import com.wisekoin.backend.module.category.dto.CategoryRequest;
+import com.wisekoin.backend.module.category.dto.CategoryUpdateRequest;
+import com.wisekoin.backend.module.common.exception.BadRequestException;
+import com.wisekoin.backend.module.common.exception.ResourceNotFoundException;
+import com.wisekoin.backend.module.transaction.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +23,7 @@ public class CategoryService {
 
     private final CategoryRepository categoryRepository;
     private final UserRepository userRepository;
+    private final TransactionRepository transactionRepository;
 
     public Category createCategory(Long userId, String name, Category.CategoryType type, String icon) {
         Category newCategory = new Category();
@@ -87,5 +93,44 @@ public class CategoryService {
             createDefaultCategories(userId);
         }
         return categoryRepository.findAllByTypeAndUserId(type, userId);
+    }
+
+    public Category updateCategory(Long userId, Long categoryId, CategoryRequest request) {
+        Category category = getOwnedCategory(userId, categoryId);
+        category.setName(request.getName());
+        category.setType(request.getType());
+        category.setIcon(request.getIcon());
+        return categoryRepository.save(category);
+    }
+
+    public Category patchCategory(Long userId, Long categoryId, CategoryUpdateRequest request) {
+        Category category = getOwnedCategory(userId, categoryId);
+        if (request.getName() != null) {
+            if (request.getName().isBlank()) {
+                throw new BadRequestException("Category name cannot be blank");
+            }
+            category.setName(request.getName());
+        }
+        if (request.getType() != null) {
+            category.setType(request.getType());
+        }
+        if (request.isIconSet()) {
+            category.setIcon(request.getIcon());
+        }
+        return categoryRepository.save(category);
+    }
+
+    public void deleteCategory(Long userId, Long categoryId) {
+        Category category = getOwnedCategory(userId, categoryId);
+        if (transactionRepository.existsByCategoryId(categoryId)) {
+            throw new BadRequestException("Cannot delete a category that is used by transactions");
+        }
+        categoryRepository.delete(category);
+    }
+
+    private Category getOwnedCategory(Long userId, Long categoryId) {
+        return categoryRepository.findById(categoryId)
+                .filter(category -> category.getUser().getId().equals(userId))
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found or access denied"));
     }
 }

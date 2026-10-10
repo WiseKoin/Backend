@@ -3,6 +3,8 @@ package com.wisekoin.backend.module.transaction;
 import com.wisekoin.backend.module.category.Category;
 import com.wisekoin.backend.module.category.CategoryRepository;
 import com.wisekoin.backend.module.common.event.TransactionCreatedEvent;
+import com.wisekoin.backend.module.common.event.TransactionDeletedEvent;
+import com.wisekoin.backend.module.common.event.TransactionUpdatedEvent;
 import com.wisekoin.backend.module.common.exception.BadRequestException;
 import com.wisekoin.backend.module.common.exception.ResourceNotFoundException;
 import com.wisekoin.backend.module.debt.Debt;
@@ -12,6 +14,7 @@ import com.wisekoin.backend.module.goal.GoalRepository;
 import com.wisekoin.backend.module.transaction.dto.MonthlyStatsResponse;
 import com.wisekoin.backend.module.transaction.dto.TransactionFilterRequest;
 import com.wisekoin.backend.module.transaction.dto.TransactionRequest;
+import com.wisekoin.backend.module.transaction.dto.TransactionUpdateRequest;
 import com.wisekoin.backend.module.user.User;
 import com.wisekoin.backend.module.user.UserRepository;
 import com.wisekoin.backend.module.wallet.Wallet;
@@ -46,40 +49,9 @@ public class TransactionService {
 
     @Transactional
     public Transaction createTransaction(Long userId, TransactionRequest request) {
-        Wallet wallet = walletRepository.findById(request.getWalletId())
-                .filter(w -> w.getUser().getId().equals(userId))
-                .orElseThrow(() -> new ResourceNotFoundException("Wallet not found or access denied"));
-
-        Category category = categoryRepository.findById(request.getCategoryId())
-                .filter(c -> c.getUser().getId().equals(userId))
-                .orElseThrow(() -> new ResourceNotFoundException("Category not found or access denied"));
-
-        if (request.getDebtId() != null && request.getGoalId() != null) {
-            throw new BadRequestException("Transaction cannot be linked to both Debt and Goal");
-        }
-
-        if (request.getDebtId() != null) {
-            Debt debt = debtRepository.findById(request.getDebtId())
-                    .filter(d -> d.getUser().getId().equals(userId))
-                    .orElseThrow(() -> new ResourceNotFoundException("Debt not found or access denied"));
-
-            if (debt.getType() == Debt.DebtType.LEND && request.getType() != Transaction.TransactionType.INCOME) {
-                throw new BadRequestException("LEND debt repayment must have INCOME type");
-            }
-            if (debt.getType() == Debt.DebtType.BORROW && request.getType() != Transaction.TransactionType.EXPENSE) {
-                throw new BadRequestException("BORROW debt repayment must have EXPENSE type");
-            }
-        }
-
-        if (request.getGoalId() != null) {
-            Goal goal = goalRepository.findById(request.getGoalId())
-                    .filter(g -> g.getUser().getId().equals(userId))
-                    .orElseThrow(() -> new ResourceNotFoundException("Goal not found or access denied"));
-
-            if (request.getType() != Transaction.TransactionType.TRANSFER) {
-                throw new BadRequestException("Goal funding must use TRANSFER type");
-            }
-        }
+        Wallet wallet = getOwnedWallet(userId, request.getWalletId());
+        Category category = getOwnedCategory(userId, request.getCategoryId());
+        validateLinks(userId, request.getType(), request.getDebtId(), request.getGoalId());
 
         Transaction newTransaction = new Transaction();
         User userProxy = userRepository.getReferenceById(userId);
@@ -117,6 +89,126 @@ public class TransactionService {
         ));
 
         return savedTransaction;
+    }
+
+    @Transactional
+    public Transaction updateTransaction(Long userId, Long transactionId, TransactionRequest request) {
+        Transaction transaction = getOwnedTransaction(userId, transactionId);
+        return updateTransaction(transaction, userId, request.getWalletId(), request.getCategoryId(),
+                request.getAmount(), request.getType(), request.getNote(), request.getTransactionDate(),
+                request.getDebtId(), request.getGoalId());
+    }
+
+    @Transactional
+    public Transaction patchTransaction(Long userId, Long transactionId, TransactionUpdateRequest request) {
+        Transaction transaction = getOwnedTransaction(userId, transactionId);
+        return updateTransaction(
+                transaction,
+                userId,
+                request.getWalletId() != null ? request.getWalletId() : transaction.getWallet().getId(),
+                request.getCategoryId() != null ? request.getCategoryId() : transaction.getCategory().getId(),
+                request.getAmount() != null ? request.getAmount() : transaction.getAmount(),
+                request.getType() != null ? request.getType() : transaction.getType(),
+                request.isNoteSet() ? request.getNote() : transaction.getNote(),
+                request.getTransactionDate() != null ? request.getTransactionDate() : transaction.getTransactionDate(),
+                request.isDebtIdSet() ? request.getDebtId() : idOf(transaction.getDebt()),
+                request.isGoalIdSet() ? request.getGoalId() : idOf(transaction.getGoal())
+        );
+    }
+
+    @Transactional
+    public void deleteTransaction(Long userId, Long transactionId) {
+        Transaction transaction = getOwnedTransaction(userId, transactionId);
+        TransactionDeletedEvent event = new TransactionDeletedEvent(
+                transaction.getWallet().getId(), transaction.getAmount(), transaction.getType(),
+                idOf(transaction.getDebt()), idOf(transaction.getGoal()));
+
+        transactionRepository.delete(transaction);
+        eventPublisher.publishEvent(event);
+    }
+
+    private Transaction updateTransaction(Transaction transaction, Long userId, Long walletId, Long categoryId,
+                                          BigDecimal amount, Transaction.TransactionType type, String note,
+                                          LocalDateTime transactionDate, Long debtId, Long goalId) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BadRequestException("Amount must be greater than 0");
+        }
+        if (type == null) {
+            throw new BadRequestException("Transaction type is required");
+        }
+
+        Wallet wallet = getOwnedWallet(userId, walletId);
+        Category category = getOwnedCategory(userId, categoryId);
+        validateLinks(userId, type, debtId, goalId);
+
+        TransactionUpdatedEvent event = new TransactionUpdatedEvent(
+                transaction.getWallet().getId(), transaction.getAmount(), transaction.getType(),
+                idOf(transaction.getDebt()), idOf(transaction.getGoal()),
+                walletId, amount, type, debtId, goalId);
+
+        transaction.setWallet(wallet);
+        transaction.setCategory(category);
+        transaction.setAmount(amount);
+        transaction.setType(type);
+        transaction.setNote(note);
+        transaction.setTransactionDate(transactionDate != null ? transactionDate : LocalDateTime.now());
+        transaction.setDebt(debtId != null ? debtRepository.getReferenceById(debtId) : null);
+        transaction.setGoal(goalId != null ? goalRepository.getReferenceById(goalId) : null);
+
+        Transaction saved = transactionRepository.save(transaction);
+        eventPublisher.publishEvent(event);
+        return saved;
+    }
+
+    private Transaction getOwnedTransaction(Long userId, Long transactionId) {
+        return transactionRepository.findById(transactionId)
+                .filter(t -> t.getUser().getId().equals(userId))
+                .orElseThrow(() -> new ResourceNotFoundException("Transaction not found or access denied"));
+    }
+
+    private Wallet getOwnedWallet(Long userId, Long walletId) {
+        return walletRepository.findById(walletId)
+                .filter(w -> w.getUser().getId().equals(userId))
+                .orElseThrow(() -> new ResourceNotFoundException("Wallet not found or access denied"));
+    }
+
+    private Category getOwnedCategory(Long userId, Long categoryId) {
+        return categoryRepository.findById(categoryId)
+                .filter(c -> c.getUser().getId().equals(userId))
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found or access denied"));
+    }
+
+    private void validateLinks(Long userId, Transaction.TransactionType type, Long debtId, Long goalId) {
+        if (debtId != null && goalId != null) {
+            throw new BadRequestException("Transaction cannot be linked to both Debt and Goal");
+        }
+        if (debtId != null) {
+            Debt debt = debtRepository.findById(debtId)
+                    .filter(d -> d.getUser().getId().equals(userId))
+                    .orElseThrow(() -> new ResourceNotFoundException("Debt not found or access denied"));
+            if (debt.getType() == Debt.DebtType.LEND && type != Transaction.TransactionType.INCOME) {
+                throw new BadRequestException("LEND debt repayment must have INCOME type");
+            }
+            if (debt.getType() == Debt.DebtType.BORROW && type != Transaction.TransactionType.EXPENSE) {
+                throw new BadRequestException("BORROW debt repayment must have EXPENSE type");
+            }
+        }
+        if (goalId != null) {
+            goalRepository.findById(goalId)
+                    .filter(g -> g.getUser().getId().equals(userId))
+                    .orElseThrow(() -> new ResourceNotFoundException("Goal not found or access denied"));
+            if (type != Transaction.TransactionType.TRANSFER) {
+                throw new BadRequestException("Goal funding must use TRANSFER type");
+            }
+        }
+    }
+
+    private Long idOf(Debt debt) {
+        return debt == null ? null : debt.getId();
+    }
+
+    private Long idOf(Goal goal) {
+        return goal == null ? null : goal.getId();
     }
 
     public Page<Transaction> getTransactionsByUser(Long userId, Pageable pageable) {

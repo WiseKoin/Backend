@@ -4,6 +4,7 @@ import com.wisekoin.backend.module.auth.security.CustomUserDetails;
 import com.wisekoin.backend.module.goal.dto.GoalFundRequest;
 import com.wisekoin.backend.module.goal.dto.GoalRequest;
 import com.wisekoin.backend.module.goal.dto.GoalResponse;
+import com.wisekoin.backend.module.goal.dto.GoalUpdateRequest;
 import com.wisekoin.backend.module.goal.mapper.GoalMapper;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -52,6 +53,35 @@ public class GoalController {
     ) {
         Goal goal = goalService.fund(currentUser.getId(), id, request);
         return ResponseEntity.ok(goalMapper.toResponse(goal));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<GoalResponse> updateGoal(
+            @PathVariable Long id,
+            @Valid @RequestBody GoalRequest request,
+            @AuthenticationPrincipal CustomUserDetails currentUser
+    ) {
+        return ResponseEntity.ok(goalMapper.toResponse(
+                goalService.updateGoal(currentUser.getId(), id, request)));
+    }
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<GoalResponse> patchGoal(
+            @PathVariable Long id,
+            @Valid @RequestBody GoalUpdateRequest request,
+            @AuthenticationPrincipal CustomUserDetails currentUser
+    ) {
+        return ResponseEntity.ok(goalMapper.toResponse(
+                goalService.patchGoal(currentUser.getId(), id, request)));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteGoal(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails currentUser
+    ) {
+        goalService.deleteGoal(currentUser.getId(), id);
+        return ResponseEntity.noContent().build();
     }
 
 }

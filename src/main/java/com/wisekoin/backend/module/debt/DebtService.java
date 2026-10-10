@@ -7,6 +7,8 @@ import com.wisekoin.backend.module.transaction.TransactionService;
 import com.wisekoin.backend.module.transaction.dto.TransactionRequest;
 import com.wisekoin.backend.module.debt.dto.DebtRequest;
 import com.wisekoin.backend.module.debt.dto.DebtRepaymentRequest;
+import com.wisekoin.backend.module.debt.dto.DebtUpdateRequest;
+import com.wisekoin.backend.module.transaction.TransactionRepository;
 import com.wisekoin.backend.module.user.User;
 import com.wisekoin.backend.module.user.UserRepository;
 import jakarta.transaction.Transactional;
@@ -26,6 +28,7 @@ public class DebtService {
     private final DebtRepository debtRepository;
     private final UserRepository userRepository;
     private final TransactionService transactionService;
+    private final TransactionRepository transactionRepository;
 
     public Debt createDebt(Long userId, DebtRequest request) {
         Debt debt = new Debt();
@@ -92,21 +95,90 @@ public class DebtService {
 
     @Transactional
     public void applyRepayment(Long debtId, BigDecimal amount) {
+        adjustRepayment(debtId, amount);
+    }
+
+    @Transactional
+    public void adjustRepayment(Long debtId, BigDecimal amount) {
         Debt debt = debtRepository.findById(debtId)
                 .orElseThrow(() -> new ResourceNotFoundException("Debt not found"));
 
-        if (debt.getStatus() == Debt.DebtStatus.COMPLETED) {
-            throw new BadRequestException("Debt is already completed");
-        }
-        if (amount.compareTo(debt.getRemainingAmount()) > 0) {
+        BigDecimal newRemaining = debt.getRemainingAmount().subtract(amount);
+        if (newRemaining.compareTo(BigDecimal.ZERO) < 0) {
             throw new BadRequestException("Repayment amount exceeds remaining debt");
         }
+        if (newRemaining.compareTo(debt.getTotalAmount()) > 0) {
+            throw new BadRequestException("Debt repayment reversal exceeds total amount");
+        }
 
-        debt.setRemainingAmount(debt.getRemainingAmount().subtract(amount));
+        debt.setRemainingAmount(newRemaining);
+        refreshStatus(debt);
+        debtRepository.save(debt);
+    }
+
+    @Transactional
+    public Debt updateDebt(Long userId, Long debtId, DebtRequest request) {
+        Debt debt = getDebtById(userId, debtId);
+        applyUpdate(debt, request.getCounterpartName(), request.getType(), request.getTotalAmount(),
+                request.getDueDate(), request.getNote());
+        return debtRepository.save(debt);
+    }
+
+    @Transactional
+    public Debt patchDebt(Long userId, Long debtId, DebtUpdateRequest request) {
+        Debt debt = getDebtById(userId, debtId);
+        String counterpartName = request.getCounterpartName() != null
+                ? request.getCounterpartName() : debt.getCounterpartName();
+        Debt.DebtType type = request.getType() != null ? request.getType() : debt.getType();
+        BigDecimal total = request.getTotalAmount() != null ? request.getTotalAmount() : debt.getTotalAmount();
+        LocalDate dueDate = request.isDueDateSet() ? request.getDueDate() : debt.getDueDate();
+        String note = request.isNoteSet() ? request.getNote() : debt.getNote();
+        applyUpdate(debt, counterpartName, type, total, dueDate, note);
+        return debtRepository.save(debt);
+    }
+
+    @Transactional
+    public void deleteDebt(Long userId, Long debtId) {
+        Debt debt = getDebtById(userId, debtId);
+        if (transactionRepository.existsByDebtId(debtId)) {
+            throw new BadRequestException("Cannot delete a debt that is used by transactions");
+        }
+        debtRepository.delete(debt);
+    }
+
+    private void applyUpdate(Debt debt, String counterpartName, Debt.DebtType type,
+                             BigDecimal totalAmount, LocalDate dueDate, String note) {
+        if (counterpartName == null || counterpartName.isBlank()) {
+            throw new BadRequestException("Counterpart name cannot be blank");
+        }
+        if (type == null || totalAmount == null || totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BadRequestException("Debt type and a positive total amount are required");
+        }
+        if (type != debt.getType() && transactionRepository.existsByDebtId(debt.getId())) {
+            throw new BadRequestException("Cannot change the type of a debt with repayment transactions");
+        }
+
+        BigDecimal paidAmount = debt.getTotalAmount().subtract(debt.getRemainingAmount());
+        if (totalAmount.compareTo(paidAmount) < 0) {
+            throw new BadRequestException("Total amount cannot be less than the amount already repaid");
+        }
+        debt.setCounterpartName(counterpartName);
+        debt.setType(type);
+        debt.setTotalAmount(totalAmount);
+        debt.setRemainingAmount(totalAmount.subtract(paidAmount));
+        debt.setDueDate(dueDate);
+        debt.setNote(note);
+        refreshStatus(debt);
+    }
+
+    private void refreshStatus(Debt debt) {
         if (debt.getRemainingAmount().compareTo(BigDecimal.ZERO) == 0) {
             debt.setStatus(Debt.DebtStatus.COMPLETED);
+        } else if (debt.getDueDate() != null && debt.getDueDate().isBefore(LocalDate.now())) {
+            debt.setStatus(Debt.DebtStatus.OVERDUE);
+        } else {
+            debt.setStatus(Debt.DebtStatus.PENDING);
         }
-        debtRepository.save(debt);
     }
 
     public void refreshOverdue(List<Debt> debts) {

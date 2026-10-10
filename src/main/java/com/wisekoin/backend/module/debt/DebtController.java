@@ -4,6 +4,7 @@ import com.wisekoin.backend.module.auth.security.CustomUserDetails;
 import com.wisekoin.backend.module.debt.dto.DebtRepaymentRequest;
 import com.wisekoin.backend.module.debt.dto.DebtRequest;
 import com.wisekoin.backend.module.debt.dto.DebtResponse;
+import com.wisekoin.backend.module.debt.dto.DebtUpdateRequest;
 import com.wisekoin.backend.module.debt.mapper.DebtMapper;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -52,6 +53,35 @@ public class DebtController {
     ) {
         Debt debt = debtService.repay(currentUser.getId(), id, request);
         return ResponseEntity.ok(debtMapper.toResponse(debt));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<DebtResponse> updateDebt(
+            @PathVariable Long id,
+            @Valid @RequestBody DebtRequest request,
+            @AuthenticationPrincipal CustomUserDetails currentUser
+    ) {
+        return ResponseEntity.ok(debtMapper.toResponse(
+                debtService.updateDebt(currentUser.getId(), id, request)));
+    }
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<DebtResponse> patchDebt(
+            @PathVariable Long id,
+            @Valid @RequestBody DebtUpdateRequest request,
+            @AuthenticationPrincipal CustomUserDetails currentUser
+    ) {
+        return ResponseEntity.ok(debtMapper.toResponse(
+                debtService.patchDebt(currentUser.getId(), id, request)));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteDebt(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails currentUser
+    ) {
+        debtService.deleteDebt(currentUser.getId(), id);
+        return ResponseEntity.noContent().build();
     }
 
 }

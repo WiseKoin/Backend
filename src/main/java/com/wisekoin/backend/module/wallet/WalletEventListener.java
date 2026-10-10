@@ -1,6 +1,8 @@
 package com.wisekoin.backend.module.wallet;
 
 import com.wisekoin.backend.module.common.event.TransactionCreatedEvent;
+import com.wisekoin.backend.module.common.event.TransactionDeletedEvent;
+import com.wisekoin.backend.module.common.event.TransactionUpdatedEvent;
 import com.wisekoin.backend.module.transaction.Transaction;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -17,14 +19,35 @@ public class WalletEventListener {
 
     @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
     public void handleTransactionCreated(TransactionCreatedEvent event) {
-        BigDecimal amountToUpdate = event.getAmount();
+        walletService.updateBalance(event.getWalletId(), balanceEffect(event.getAmount(), event.getType()));
+    }
 
-        if (Transaction.TransactionType.EXPENSE.equals(event.getType()) ||
-                Transaction.TransactionType.TRANSFER.equals(event.getType())) {
-            amountToUpdate = amountToUpdate.negate();
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
+    public void handleTransactionUpdated(TransactionUpdatedEvent event) {
+        walletService.updateBalance(
+                event.getOldWalletId(),
+                balanceEffect(event.getOldAmount(), event.getOldType()).negate()
+        );
+        walletService.updateBalance(
+                event.getNewWalletId(),
+                balanceEffect(event.getNewAmount(), event.getNewType())
+        );
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
+    public void handleTransactionDeleted(TransactionDeletedEvent event) {
+        walletService.updateBalance(
+                event.getWalletId(),
+                balanceEffect(event.getAmount(), event.getType()).negate()
+        );
+    }
+
+    private BigDecimal balanceEffect(BigDecimal amount, Transaction.TransactionType type) {
+        if (Transaction.TransactionType.EXPENSE.equals(type)
+                || Transaction.TransactionType.TRANSFER.equals(type)) {
+            return amount.negate();
         }
-
-        walletService.updateBalance(event.getWalletId(), amountToUpdate);
+        return amount;
     }
 
 }

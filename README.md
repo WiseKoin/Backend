@@ -41,25 +41,34 @@ Spring Boot REST API for the WiseKoin financial management application.
 ### Wallets
 - `GET /api/wallets` — List all wallets for current user
 - `POST /api/wallets` — Create a new wallet
+- `PUT/PATCH /api/wallets/{id}` — Update a wallet
+- `DELETE /api/wallets/{id}` — Delete an unused wallet
 
 ### Categories
 - `GET /api/categories` — List categories for current user
 - `POST /api/categories` — Create a custom category
+- `PUT/PATCH /api/categories/{id}` — Update a category
 - `DELETE /api/categories/{id}` — Delete a category
 
 ### Transactions
 - `GET /api/transactions` — List transactions (paginated, filterable)
 - `POST /api/transactions` — Create a new transaction
+- `PUT/PATCH /api/transactions/{id}` — Update a transaction and recalculate linked balances
+- `DELETE /api/transactions/{id}` — Delete a transaction and reverse its linked balances
 - `GET /api/transactions/monthly?year={year}` — Get monthly income/expense stats
 
 ### Debts
 - `GET /api/debts` — List debts for current user
 - `POST /api/debts` — Create a new debt (lend or borrow)
+- `PUT/PATCH /api/debts/{id}` — Update a debt
+- `DELETE /api/debts/{id}` — Delete a debt without repayment transactions
 - `POST /api/debts/{id}/repay` — Repay part or all of a debt
 
 ### Goals
 - `GET /api/goals` — List savings goals
 - `POST /api/goals` — Create a new savings goal
+- `PUT/PATCH /api/goals/{id}` — Update a savings goal
+- `DELETE /api/goals/{id}` — Delete a goal without funding transactions
 - `POST /api/goals/{id}/fund` — Add funds to a goal
 
 ### Receipts

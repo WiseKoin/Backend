@@ -4,6 +4,7 @@ import com.wisekoin.backend.module.auth.security.CustomUserDetails;
 import com.wisekoin.backend.module.wallet.dto.WalletRequest;
 import com.wisekoin.backend.module.wallet.dto.WalletResponse;
 import com.wisekoin.backend.module.wallet.dto.WalletSummaryResponse;
+import com.wisekoin.backend.module.wallet.dto.WalletUpdateRequest;
 import com.wisekoin.backend.module.wallet.mapper.WalletMapper;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -56,6 +57,35 @@ public class WalletController {
         WalletSummaryResponse walletSummaryResponse = new WalletSummaryResponse(totalBalance, walletResponses);
 
         return ResponseEntity.ok(walletSummaryResponse);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<WalletResponse> updateWallet(
+            @PathVariable Long id,
+            @Valid @RequestBody WalletRequest request,
+            @AuthenticationPrincipal CustomUserDetails currentUser
+    ) {
+        return ResponseEntity.ok(walletMapper.toResponse(
+                walletService.updateWallet(currentUser.getId(), id, request)));
+    }
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<WalletResponse> patchWallet(
+            @PathVariable Long id,
+            @Valid @RequestBody WalletUpdateRequest request,
+            @AuthenticationPrincipal CustomUserDetails currentUser
+    ) {
+        return ResponseEntity.ok(walletMapper.toResponse(
+                walletService.patchWallet(currentUser.getId(), id, request)));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteWallet(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails currentUser
+    ) {
+        walletService.deleteWallet(currentUser.getId(), id);
+        return ResponseEntity.noContent().build();
     }
 
 }

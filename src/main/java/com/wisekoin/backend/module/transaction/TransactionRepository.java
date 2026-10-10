@@ -18,4 +18,12 @@ public interface TransactionRepository extends
     List<Transaction> findAllByUserIdAndTransactionDateBetween(
             Long userId, LocalDateTime startDate, LocalDateTime endDate);
 
+    boolean existsByWalletId(Long walletId);
+
+    boolean existsByCategoryId(Long categoryId);
+
+    boolean existsByDebtId(Long debtId);
+
+    boolean existsByGoalId(Long goalId);
+
 }
