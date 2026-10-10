@@ -1,6 +1,7 @@
 package com.wisekoin.backend.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -40,17 +41,14 @@ class SecurityConfigTest {
     }
 
     @Test
-    void corsConfigurationUsesConfiguredOriginsAndApiMethods() {
-        CorsConfigurationSource source =
-                securityConfig.corsConfigurationSource(
-                        "https://app.example.com, https://admin.example.com");
+    void corsConfigurationSupportsNativeBearerTokenClients() {
+        CorsConfigurationSource source = securityConfig.corsConfigurationSource();
         CorsConfiguration configuration =
                 source.getCorsConfiguration(new MockHttpServletRequest("OPTIONS", "/api/wallets"));
 
         assertNotNull(configuration);
-        assertEquals(
-                List.of("https://app.example.com", "https://admin.example.com"),
-                configuration.getAllowedOrigins());
+        assertEquals(List.of("*"), configuration.getAllowedOriginPatterns());
+        assertFalse(configuration.getAllowCredentials());
         assertEquals(
                 List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"),
                 configuration.getAllowedMethods());

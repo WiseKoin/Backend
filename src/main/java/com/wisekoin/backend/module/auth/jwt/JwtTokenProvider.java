@@ -42,6 +42,10 @@ public class JwtTokenProvider {
                 .compact();
     }
 
+    public long getExpirationSeconds() {
+        return expiration / 1000;
+    }
+
     public boolean validateToken(String token, String email) {
         try {
             String sub = extractEmail(token);

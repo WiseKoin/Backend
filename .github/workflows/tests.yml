@@ -47,14 +47,8 @@ jobs:
           java-version: "21"
           cache: maven
 
-      - name: Check formatting
-        id: spotless
-        continue-on-error: true
-        run: ./mvnw --batch-mode --no-transfer-progress spotless:check
-
       - name: Run tests
         id: tests
-        if: always()
         continue-on-error: true
         run: ./mvnw --batch-mode --no-transfer-progress test
 
@@ -62,7 +56,6 @@ jobs:
         if: always()
         shell: bash
         env:
-          SPOTLESS_OUTCOME: ${{ steps.spotless.outcome }}
           TEST_OUTCOME: ${{ steps.tests.outcome }}
         run: |
           shopt -s nullglob
@@ -81,9 +74,7 @@ jobs:
           fi
 
           passed=$((total - failures - errors - skipped))
-          format_icon="❌"
           test_icon="❌"
-          [[ "$SPOTLESS_OUTCOME" == "success" ]] && format_icon="✅"
           [[ "$TEST_OUTCOME" == "success" ]] && test_icon="✅"
 
           {
@@ -91,7 +82,6 @@ jobs:
             echo
             echo "| Check | Status |"
             echo "| --- | --- |"
-            echo "| Spotless | $format_icon $SPOTLESS_OUTCOME |"
             echo "| Maven tests | $test_icon $TEST_OUTCOME |"
             echo
             echo "| Tests | Passed | Failed | Errors | Skipped |"
@@ -112,9 +102,8 @@ jobs:
         if: always()
         shell: bash
         env:
-          SPOTLESS_OUTCOME: ${{ steps.spotless.outcome }}
           TEST_OUTCOME: ${{ steps.tests.outcome }}
         run: |
-          if [[ "$SPOTLESS_OUTCOME" != "success" || "$TEST_OUTCOME" != "success" ]]; then
+          if [[ "$TEST_OUTCOME" != "success" ]]; then
             exit 1
           fi

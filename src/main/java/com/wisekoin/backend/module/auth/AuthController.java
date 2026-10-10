@@ -2,6 +2,7 @@ package com.wisekoin.backend.module.auth;
 
 import com.wisekoin.backend.module.auth.dto.AuthResponse;
 import com.wisekoin.backend.module.auth.dto.LoginRequest;
+import com.wisekoin.backend.module.auth.dto.RefreshTokenRequest;
 import com.wisekoin.backend.module.auth.dto.RegisterRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -28,5 +29,18 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest loginRequest) {
         return ResponseEntity.ok(authService.login(loginRequest));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refresh(
+            @Valid @RequestBody RefreshTokenRequest refreshTokenRequest) {
+        return ResponseEntity.ok(authService.refresh(refreshTokenRequest));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(
+            @Valid @RequestBody RefreshTokenRequest refreshTokenRequest) {
+        authService.logout(refreshTokenRequest);
+        return ResponseEntity.noContent().build();
     }
 }

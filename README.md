@@ -31,12 +31,17 @@ Spring Boot REST API for the WiseKoin financial management application.
 ## REST API Endpoints
 
 ### Authentication
-- `POST /api/auth/register` — Register a new user
-- `POST /api/auth/login` — Login and receive JWT token
+- `POST /api/auth/register` — Register and receive an access/refresh token pair
+- `POST /api/auth/login` — Login and receive an access/refresh token pair
+- `POST /api/auth/refresh` — Rotate a refresh token and receive a new token pair
+- `POST /api/auth/logout` — Revoke a refresh token
 
 ### Users
 - `GET /api/users/me` — Get current user profile
 - `PUT /api/users/me` — Update current user profile
+- `PUT /api/users/me/password` — Change password and revoke all refresh sessions
+- `PUT /api/users/me/base-currency` — Update the ISO 4217 base currency
+- `DELETE /api/users/me` — Permanently delete the user and all owned data
 
 ### Wallets
 - `GET /api/wallets` — List all wallets for current user
@@ -107,6 +112,8 @@ DB_URL=jdbc:postgresql://host:port/dbname?sslmode=require
 DB_USERNAME=your_db_user
 DB_PASSWORD=your_db_password
 JWT_SECRET=your_jwt_secret_min_256_bits
+JWT_EXPIRATION=900000
+JWT_REFRESH_EXPIRATION=2592000000
 VISION_LANGUAGE_API_KEY=your_gemini_api_key
 ```
 
@@ -148,6 +155,32 @@ docker compose --env-file .env.production -f docker-compose.prod.yml up -d
 
 The production configuration connects directly to Neon Cloud and does not run
 the Neon Local proxy.
+
+### Android client sessions
+
+Native Android networking is not subject to browser CORS. The API accepts
+cross-origin bearer-token requests without credentialed browser cookies, so no
+frontend origin allowlist is required. When testing from a physical device, use
+the development machine's LAN address instead of `localhost`, for example
+`http://192.168.1.10:8080`.
+
+Login and registration return a short-lived access token and a rotating refresh
+token:
+
+```json
+{
+  "accessToken": "...",
+  "refreshToken": "...",
+  "tokenType": "Bearer",
+  "expiresIn": 900
+}
+```
+
+Store the refresh token in encrypted application storage backed by the Android
+Keystore. Send it to `POST /api/auth/refresh` as
+`{"refreshToken":"..."}` when the access token expires, and replace both local
+tokens with the returned pair. Refresh tokens are stored as hashes by the API
+and invalidated immediately when rotated or logged out.
 
 The Docker publishing workflow requires repository secrets named
 `DOCKER_USERNAME` and `DOCKER_PASSWORD`. Pushes to `main` publish `latest`,
