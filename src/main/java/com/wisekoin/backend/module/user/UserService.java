@@ -8,13 +8,14 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class UserService {
-
     private final UserRepository userRepository;
     private final CategoryService categoryService;
 
     public User getUserByEmail(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        User user =
+                userRepository
+                        .findByEmail(email)
+                        .orElseThrow(() -> new RuntimeException("User not found"));
         return user;
     }
 
@@ -43,5 +44,4 @@ public class UserService {
 
         return userRepository.save(user);
     }
-
 }

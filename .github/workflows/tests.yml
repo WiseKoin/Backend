@@ -47,5 +47,74 @@ jobs:
           java-version: "21"
           cache: maven
 
+      - name: Check formatting
+        id: spotless
+        continue-on-error: true
+        run: ./mvnw --batch-mode --no-transfer-progress spotless:check
+
       - name: Run tests
-        run: ./mvnw --batch-mode --no-transfer-progress verify
+        id: tests
+        if: always()
+        continue-on-error: true
+        run: ./mvnw --batch-mode --no-transfer-progress test
+
+      - name: Add test results to job summary
+        if: always()
+        shell: bash
+        env:
+          SPOTLESS_OUTCOME: ${{ steps.spotless.outcome }}
+          TEST_OUTCOME: ${{ steps.tests.outcome }}
+        run: |
+          shopt -s nullglob
+          reports=(target/surefire-reports/TEST-*.xml)
+
+          total=0
+          failures=0
+          errors=0
+          skipped=0
+
+          if (( ${#reports[@]} > 0 )); then
+            total=$(grep -h '<testsuite ' "${reports[@]}" | sed -n 's/.* tests="\([0-9]*\)".*/\1/p' | awk '{ sum += $1 } END { print sum + 0 }')
+            failures=$(grep -h '<testsuite ' "${reports[@]}" | sed -n 's/.* failures="\([0-9]*\)".*/\1/p' | awk '{ sum += $1 } END { print sum + 0 }')
+            errors=$(grep -h '<testsuite ' "${reports[@]}" | sed -n 's/.* errors="\([0-9]*\)".*/\1/p' | awk '{ sum += $1 } END { print sum + 0 }')
+            skipped=$(grep -h '<testsuite ' "${reports[@]}" | sed -n 's/.* skipped="\([0-9]*\)".*/\1/p' | awk '{ sum += $1 } END { print sum + 0 }')
+          fi
+
+          passed=$((total - failures - errors - skipped))
+          format_icon="❌"
+          test_icon="❌"
+          [[ "$SPOTLESS_OUTCOME" == "success" ]] && format_icon="✅"
+          [[ "$TEST_OUTCOME" == "success" ]] && test_icon="✅"
+
+          {
+            echo "## Test summary"
+            echo
+            echo "| Check | Status |"
+            echo "| --- | --- |"
+            echo "| Spotless | $format_icon $SPOTLESS_OUTCOME |"
+            echo "| Maven tests | $test_icon $TEST_OUTCOME |"
+            echo
+            echo "| Tests | Passed | Failed | Errors | Skipped |"
+            echo "| ---: | ---: | ---: | ---: | ---: |"
+            echo "| $total | $passed | $failures | $errors | $skipped |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: target/surefire-reports/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Enforce CI results
+        if: always()
+        shell: bash
+        env:
+          SPOTLESS_OUTCOME: ${{ steps.spotless.outcome }}
+          TEST_OUTCOME: ${{ steps.tests.outcome }}
+        run: |
+          if [[ "$SPOTLESS_OUTCOME" != "success" || "$TEST_OUTCOME" != "success" ]]; then
+            exit 1
+          fi

@@ -1,15 +1,13 @@
 package com.wisekoin.backend.module.common.event;
 
 import com.wisekoin.backend.module.transaction.Transaction;
+import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-
-import java.math.BigDecimal;
 
 @Getter
 @AllArgsConstructor
 public class TransactionUpdatedEvent {
-
     private Long oldWalletId;
     private Long oldDestinationWalletId;
     private BigDecimal oldAmount;

@@ -1,7 +1,7 @@
 package com.wisekoin.backend.module.wallet;
 
-import com.wisekoin.backend.module.common.exception.InsufficientBalanceException;
 import com.wisekoin.backend.module.common.exception.BadRequestException;
+import com.wisekoin.backend.module.common.exception.InsufficientBalanceException;
 import com.wisekoin.backend.module.common.exception.ResourceNotFoundException;
 import com.wisekoin.backend.module.transaction.TransactionRepository;
 import com.wisekoin.backend.module.user.User;
@@ -9,21 +9,20 @@ import com.wisekoin.backend.module.user.UserRepository;
 import com.wisekoin.backend.module.wallet.dto.WalletRequest;
 import com.wisekoin.backend.module.wallet.dto.WalletUpdateRequest;
 import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
 public class WalletService {
-
     private final WalletRepository walletRepository;
     private final UserRepository userRepository;
     private final TransactionRepository transactionRepository;
 
-    public Wallet createWallet(Long userId, String name, Wallet.WalletType walletType, BigDecimal initialBalance) {
+    public Wallet createWallet(
+            Long userId, String name, Wallet.WalletType walletType, BigDecimal initialBalance) {
         Wallet newWallet = new Wallet();
         User userProxy = userRepository.getReferenceById(userId);
 
@@ -86,15 +85,19 @@ public class WalletService {
     }
 
     private Wallet getOwnedWallet(Long userId, Long walletId) {
-        return walletRepository.findById(walletId)
+        return walletRepository
+                .findById(walletId)
                 .filter(wallet -> wallet.getUser().getId().equals(userId))
-                .orElseThrow(() -> new ResourceNotFoundException("Wallet not found or access denied"));
+                .orElseThrow(
+                        () -> new ResourceNotFoundException("Wallet not found or access denied"));
     }
 
     @Transactional
     public void updateBalance(Long walletId, BigDecimal amount) {
-        Wallet wallet = walletRepository.findById(walletId)
-                .orElseThrow(() -> new RuntimeException("Wallet not found"));
+        Wallet wallet =
+                walletRepository
+                        .findById(walletId)
+                        .orElseThrow(() -> new RuntimeException("Wallet not found"));
 
         BigDecimal newBalance = wallet.getBalance().add(amount);
         if (newBalance.compareTo(BigDecimal.ZERO) < 0) {
@@ -104,5 +107,4 @@ public class WalletService {
         wallet.setBalance(newBalance);
         walletRepository.save(wallet);
     }
-
 }

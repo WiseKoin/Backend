@@ -11,7 +11,6 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class CategoryRequest {
-
     @NotBlank
     private String name;
 
@@ -19,5 +18,4 @@ public class CategoryRequest {
     private Category.CategoryType type;
 
     private String icon;
-
 }

@@ -1,9 +1,8 @@
 package com.wisekoin.backend.module.receipt;
 
-import java.io.IOException;
-
 import com.wisekoin.backend.module.auth.security.CustomUserDetails;
 import com.wisekoin.backend.module.receipt.dto.ReceiptResponse;
+import java.io.IOException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -21,7 +20,6 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 @Slf4j
 public class ReceiptController {
-
     private final ReceiptService receiptService;
 
     @PostMapping(value = "/extract", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -37,11 +35,10 @@ public class ReceiptController {
             return ResponseEntity.ok(result);
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body("Error when processing image: " + e.getMessage());
+                    .body("Error when processing image: " + e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-                .body("Error when calling Gemini model: " + e.getMessage());
+                    .body("Error when calling Gemini model: " + e.getMessage());
         }
     }
-
 }

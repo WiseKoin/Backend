@@ -2,10 +2,9 @@ package com.wisekoin.backend.module.wallet.dto;
 
 import com.wisekoin.backend.module.wallet.Wallet;
 import jakarta.validation.constraints.PositiveOrZero;
+import java.math.BigDecimal;
 import lombok.Getter;
 import lombok.Setter;
-
-import java.math.BigDecimal;
 
 @Getter
 @Setter

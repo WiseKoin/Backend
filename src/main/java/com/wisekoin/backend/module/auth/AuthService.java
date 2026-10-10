@@ -1,25 +1,21 @@
 package com.wisekoin.backend.module.auth;
 
-import com.wisekoin.backend.module.auth.dto.LoginRequest;
 import com.wisekoin.backend.module.auth.dto.AuthResponse;
+import com.wisekoin.backend.module.auth.dto.LoginRequest;
+import com.wisekoin.backend.module.auth.dto.RegisterRequest;
 import com.wisekoin.backend.module.auth.jwt.JwtTokenProvider;
-import com.wisekoin.backend.module.wallet.Wallet;
 import com.wisekoin.backend.module.category.CategoryService;
-import com.wisekoin.backend.module.wallet.WalletService;
 import com.wisekoin.backend.module.user.User;
 import com.wisekoin.backend.module.user.UserService;
-import com.wisekoin.backend.module.auth.dto.RegisterRequest;
+import com.wisekoin.backend.module.wallet.WalletService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.RequestBody;
 
-import java.math.BigDecimal;
-
 @Service
 @RequiredArgsConstructor
 public class AuthService {
-
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
@@ -31,12 +27,12 @@ public class AuthService {
             throw new IllegalArgumentException("Invalid credentials");
         }
 
-        User newUser = userService.createUser(
-                registerRequest.getEmail(),
-                passwordEncoder.encode(registerRequest.getPassword()),
-                registerRequest.getUsername(),
-                registerRequest.getPhone()
-        );
+        User newUser =
+                userService.createUser(
+                        registerRequest.getEmail(),
+                        passwordEncoder.encode(registerRequest.getPassword()),
+                        registerRequest.getUsername(),
+                        registerRequest.getPhone());
 
         walletService.createDefaultWallet(newUser.getId());
         categoryService.createDefaultCategories(newUser.getId());
@@ -55,5 +51,4 @@ public class AuthService {
         String accessToken = jwtTokenProvider.generateToken(user.getEmail());
         return new AuthResponse(accessToken);
     }
-
 }

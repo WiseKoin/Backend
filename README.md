@@ -167,6 +167,16 @@ mvn test
 mvn test -Dtest=ReceiptServiceTest
 ```
 
+## Formatting
+
+```bash
+# Check formatting (also runs during mvn verify)
+mvn spotless:check
+
+# Format Java sources
+mvn spotless:apply
+```
+
 ## Test Account
 
 To create a test account, use the register endpoint:

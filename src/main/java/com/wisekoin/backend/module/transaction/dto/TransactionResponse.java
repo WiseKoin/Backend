@@ -1,16 +1,14 @@
 package com.wisekoin.backend.module.transaction.dto;
 
 import com.wisekoin.backend.module.transaction.Transaction;
-import lombok.Builder;
-import lombok.Getter;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import lombok.Builder;
+import lombok.Getter;
 
 @Getter
 @Builder
 public class TransactionResponse {
-
     private Long id;
     private BigDecimal amount;
     private Transaction.TransactionType type;
@@ -51,5 +49,4 @@ public class TransactionResponse {
         private Long id;
         private String name;
     }
-
 }

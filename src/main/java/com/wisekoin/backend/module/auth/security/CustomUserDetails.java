@@ -1,20 +1,16 @@
 package com.wisekoin.backend.module.auth.security;
 
+import com.wisekoin.backend.module.user.User;
 import java.util.Collection;
 import java.util.Collections;
-
+import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import com.wisekoin.backend.module.user.User;
-
-import lombok.RequiredArgsConstructor;
-
 @RequiredArgsConstructor
 public class CustomUserDetails implements UserDetails {
-
     private final User user;
 
     public Long getId() {
@@ -55,5 +51,4 @@ public class CustomUserDetails implements UserDetails {
     public boolean isEnabled() {
         return true;
     }
-
 }

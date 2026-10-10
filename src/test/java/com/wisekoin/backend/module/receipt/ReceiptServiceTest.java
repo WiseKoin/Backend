@@ -11,9 +11,7 @@
 // import org.springframework.web.client.RestClient;
 // import tools.jackson.databind.json.JsonMapper;
 
-// class ReceiptServiceTest {
-
-//     private ReceiptService receiptService;
+// class ReceiptServiceTest {//     private ReceiptService receiptService;
 
 //     @BeforeEach
 //     void setUp() {

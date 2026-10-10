@@ -1,9 +1,8 @@
 package com.wisekoin.backend.module.voice;
 
-import java.io.IOException;
-
 import com.wisekoin.backend.module.auth.security.CustomUserDetails;
 import com.wisekoin.backend.module.voice.dto.VoiceResponse;
+import java.io.IOException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -21,7 +20,6 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 @Slf4j
 public class VoiceController {
-
     private final VoiceService voiceService;
 
     @PostMapping(value = "/extract", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -42,14 +40,21 @@ public class VoiceController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error when processing audio file: " + e.getMessage());
         } catch (org.springframework.web.client.RestClientResponseException e) {
-            log.error("Gemini API returned error status: {}, body: {}", e.getStatusCode(), e.getResponseBodyAsString(), e);
+            log.error(
+                    "Gemini API returned error status: {}, body: {}",
+                    e.getStatusCode(),
+                    e.getResponseBodyAsString(),
+                    e);
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-                    .body("Gemini API Error (" + e.getStatusCode() + "): " + e.getResponseBodyAsString());
+                    .body(
+                            "Gemini API Error ("
+                                    + e.getStatusCode()
+                                    + "): "
+                                    + e.getResponseBodyAsString());
         } catch (Exception e) {
             log.error("Error during voice extraction processing", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error processing voice request: " + e.getMessage());
         }
     }
-
 }

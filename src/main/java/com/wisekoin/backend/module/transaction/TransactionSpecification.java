@@ -2,53 +2,60 @@ package com.wisekoin.backend.module.transaction;
 
 import com.wisekoin.backend.module.transaction.dto.TransactionFilterRequest;
 import jakarta.persistence.criteria.Predicate;
-import org.springframework.data.jpa.domain.Specification;
-
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.data.jpa.domain.Specification;
 
 public class TransactionSpecification {
-
-    public static Specification<Transaction> getFilterSpec(Long userId, TransactionFilterRequest filter) {
+    public static Specification<Transaction> getFilterSpec(
+            Long userId, TransactionFilterRequest filter) {
         return (root, criteriaQuery, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
 
             predicates.add(criteriaBuilder.equal(root.get("user").get("id"), userId));
 
             if (filter.getStartDate() != null) {
-                predicates.add(criteriaBuilder.greaterThanOrEqualTo(
-                        root.get("transactionDate"),
-                        filter.getStartDate().atStartOfDay() // From 00:00:00
-                ));
+                predicates.add(
+                        criteriaBuilder.greaterThanOrEqualTo(
+                                root.get("transactionDate"),
+                                filter.getStartDate().atStartOfDay() // From 00:00:00
+                                ));
             }
             if (filter.getEndDate() != null) {
-                predicates.add(criteriaBuilder.lessThanOrEqualTo(
-                        root.get("transactionDate"),
-                        filter.getEndDate().atTime(LocalTime.MAX) // To 23:59:59
-                ));
+                predicates.add(
+                        criteriaBuilder.lessThanOrEqualTo(
+                                root.get("transactionDate"),
+                                filter.getEndDate().atTime(LocalTime.MAX) // To 23:59:59
+                                ));
             }
             if (filter.getCategoryId() != null) {
-                predicates.add(criteriaBuilder.equal(root.get("category").get("id"), filter.getCategoryId()));
+                predicates.add(
+                        criteriaBuilder.equal(
+                                root.get("category").get("id"), filter.getCategoryId()));
             }
             if (filter.getWalletId() != null) {
-                predicates.add(criteriaBuilder.or(
-                        criteriaBuilder.equal(root.get("wallet").get("id"), filter.getWalletId()),
-                        criteriaBuilder.equal(root.get("destinationWallet").get("id"), filter.getWalletId())
-                ));
+                predicates.add(
+                        criteriaBuilder.or(
+                                criteriaBuilder.equal(
+                                        root.get("wallet").get("id"), filter.getWalletId()),
+                                criteriaBuilder.equal(
+                                        root.get("destinationWallet").get("id"),
+                                        filter.getWalletId())));
             }
             if (filter.getType() != null) {
                 predicates.add(criteriaBuilder.equal(root.get("type"), filter.getType()));
             }
             if (filter.getDebtId() != null) {
-                predicates.add(criteriaBuilder.equal(root.get("debt").get("id"), filter.getDebtId()));
+                predicates.add(
+                        criteriaBuilder.equal(root.get("debt").get("id"), filter.getDebtId()));
             }
             if (filter.getGoalId() != null) {
-                predicates.add(criteriaBuilder.equal(root.get("goal").get("id"), filter.getGoalId()));
+                predicates.add(
+                        criteriaBuilder.equal(root.get("goal").get("id"), filter.getGoalId()));
             }
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
         };
     }
-
 }

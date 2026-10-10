@@ -1,15 +1,14 @@
 package com.wisekoin.backend.module.voice;
 
+import com.wisekoin.backend.module.category.Category;
+import com.wisekoin.backend.module.category.CategoryService;
+import com.wisekoin.backend.module.voice.dto.VoiceResponse;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import com.wisekoin.backend.module.category.Category;
-import com.wisekoin.backend.module.category.CategoryService;
-import com.wisekoin.backend.module.voice.dto.VoiceResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,7 +16,6 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.multipart.MultipartFile;
-
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -25,7 +23,6 @@ import tools.jackson.databind.json.JsonMapper;
 @RequiredArgsConstructor
 @Slf4j
 public class VoiceService {
-
     @Value("${gemini.api.vision.language.key}")
     private String apiKey;
 
@@ -41,7 +38,8 @@ public class VoiceService {
         String base64Audio = encodeAudioToBase64(file);
 
         List<String> userCategories = getUserCategories(userId);
-        Map<String, Object> requestBody = buildGeminiRequestBody(mimeType, base64Audio, userCategories);
+        Map<String, Object> requestBody =
+                buildGeminiRequestBody(mimeType, base64Audio, userCategories);
         String responseRaw = callGeminiApi(requestBody);
 
         return parseGeminiResponse(responseRaw, userCategories);
@@ -57,7 +55,16 @@ public class VoiceService {
         }
 
         if (result.isEmpty()) {
-            result.addAll(List.of("Dining", "Transport", "Shopping", "Education", "Entertainment", "Salary", "Bonus", "General"));
+            result.addAll(
+                    List.of(
+                            "Dining",
+                            "Transport",
+                            "Shopping",
+                            "Education",
+                            "Entertainment",
+                            "Salary",
+                            "Bonus",
+                            "General"));
         }
 
         return result;
@@ -69,14 +76,22 @@ public class VoiceService {
         }
 
         String rawMimeType = file.getContentType();
-        String filename = file.getOriginalFilename() != null ? file.getOriginalFilename().toLowerCase() : "";
+        String filename =
+                file.getOriginalFilename() != null ? file.getOriginalFilename().toLowerCase() : "";
 
-        if ("audio/mp4".equalsIgnoreCase(rawMimeType) || "audio/m4a".equalsIgnoreCase(rawMimeType)
-                || "audio/x-m4a".equalsIgnoreCase(rawMimeType) || filename.endsWith(".m4a") || filename.endsWith(".mp4")) {
+        if ("audio/mp4".equalsIgnoreCase(rawMimeType)
+                || "audio/m4a".equalsIgnoreCase(rawMimeType)
+                || "audio/x-m4a".equalsIgnoreCase(rawMimeType)
+                || filename.endsWith(".m4a")
+                || filename.endsWith(".mp4")) {
             return "audio/mp4";
-        } else if ("audio/mpeg".equalsIgnoreCase(rawMimeType) || "audio/mp3".equalsIgnoreCase(rawMimeType) || filename.endsWith(".mp3")) {
+        } else if ("audio/mpeg".equalsIgnoreCase(rawMimeType)
+                || "audio/mp3".equalsIgnoreCase(rawMimeType)
+                || filename.endsWith(".mp3")) {
             return "audio/mp3";
-        } else if ("audio/wav".equalsIgnoreCase(rawMimeType) || "audio/x-wav".equalsIgnoreCase(rawMimeType) || filename.endsWith(".wav")) {
+        } else if ("audio/wav".equalsIgnoreCase(rawMimeType)
+                || "audio/x-wav".equalsIgnoreCase(rawMimeType)
+                || filename.endsWith(".wav")) {
             return "audio/wav";
         } else if ("audio/aac".equalsIgnoreCase(rawMimeType) || filename.endsWith(".aac")) {
             return "audio/aac";
@@ -84,39 +99,46 @@ public class VoiceService {
             return "audio/ogg";
         }
 
-        throw new IllegalArgumentException("Do not support audio format: " + rawMimeType + ". Only accept m4a, mp3, wav, aac, and ogg.");
+        throw new IllegalArgumentException(
+                "Do not support audio format: "
+                        + rawMimeType
+                        + ". Only accept m4a, mp3, wav, aac, and ogg.");
     }
 
     private String encodeAudioToBase64(MultipartFile file) throws IOException {
         return Base64.getEncoder().encodeToString(file.getBytes());
     }
 
-    private Map<String, Object> buildGeminiRequestBody(String mimeType, String base64Audio, List<String> categories) {
+    private Map<String, Object> buildGeminiRequestBody(
+            String mimeType, String base64Audio, List<String> categories) {
         List<String> categoriesWithUnknown = new ArrayList<>(categories);
         if (!categoriesWithUnknown.contains("Unknown")) {
             categoriesWithUnknown.add("Unknown");
         }
         String categoryList = String.join(", ", categoriesWithUnknown);
 
-        String prompt = "Listen carefully to this audio recording of a user describing a financial transaction (expense or income) in Vietnamese or English. "
-                + "Extract the transaction amount, transaction type (EXPENSE or INCOME), category of expenditure or income, a concise note/description, and full transcript. "
-                + "The category must be chosen from the following user categories: " + categoryList
-                + ". If the transaction does not match any listed category, choose 'Unknown'. "
-                + "Accurately understand spoken Vietnamese numbers and terms (e.g., '50k', '50 ngàn', '50 nghìn' -> 50000; '1 củ', '1 triệu' -> 1000000; '2 lít', '200k' -> 200000; 'nửa triệu' -> 500000). "
-                + "Default type is 'EXPENSE' unless the user clearly states income, earnings, or salary.";
+        String prompt =
+                "Listen carefully to this audio recording of a user describing a financial transaction (expense or income) in Vietnamese or English. "
+                        + "Extract the transaction amount, transaction type (EXPENSE or INCOME), category of expenditure or income, a concise note/description, and full transcript. "
+                        + "The category must be chosen from the following user categories: "
+                        + categoryList
+                        + ". If the transaction does not match any listed category, choose 'Unknown'. "
+                        + "Accurately understand spoken Vietnamese numbers and terms (e.g., '50k', '50 ngàn', '50 nghìn' -> 50000; '1 củ', '1 triệu' -> 1000000; '2 lít', '200k' -> 200000; 'nửa triệu' -> 500000). "
+                        + "Default type is 'EXPENSE' unless the user clearly states income, earnings, or salary.";
 
         Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("contents", List.of(
-                Map.of(
-                        "parts", List.of(
-                                Map.of("text", prompt),
-                                Map.of("inline_data", Map.of(
-                                        "mime_type", mimeType,
-                                        "data", base64Audio
-                                ))
-                        )
-                )
-        ));
+        requestBody.put(
+                "contents",
+                List.of(
+                        Map.of(
+                                "parts",
+                                List.of(
+                                        Map.of("text", prompt),
+                                        Map.of(
+                                                "inline_data",
+                                                Map.of(
+                                                        "mime_type", mimeType,
+                                                        "data", base64Audio))))));
 
         Map<String, Object> generationConfig = new HashMap<>();
         generationConfig.put("temperature", 0.0);
@@ -125,14 +147,42 @@ public class VoiceService {
         Map<String, Object> categorySchema = new HashMap<>();
         categorySchema.put("type", "STRING");
         categorySchema.put("enum", categoriesWithUnknown);
-        categorySchema.put("description", "The expenditure or income category from user-defined list or 'Unknown'.");
+        categorySchema.put(
+                "description",
+                "The expenditure or income category from user-defined list or 'Unknown'.");
 
         Map<String, Object> properties = new HashMap<>();
-        properties.put("amount", Map.of("type", "NUMBER", "description", "The numeric transaction amount in VND without symbols"));
-        properties.put("type", Map.of("type", "STRING", "enum", List.of("EXPENSE", "INCOME"), "description", "Transaction type: EXPENSE or INCOME"));
+        properties.put(
+                "amount",
+                Map.of(
+                        "type",
+                        "NUMBER",
+                        "description",
+                        "The numeric transaction amount in VND without symbols"));
+        properties.put(
+                "type",
+                Map.of(
+                        "type",
+                        "STRING",
+                        "enum",
+                        List.of("EXPENSE", "INCOME"),
+                        "description",
+                        "Transaction type: EXPENSE or INCOME"));
         properties.put("category", categorySchema);
-        properties.put("note", Map.of("type", "STRING", "description", "Short note or description of the transaction"));
-        properties.put("transcript", Map.of("type", "STRING", "description", "The user's spoken words transcribed in the original language"));
+        properties.put(
+                "note",
+                Map.of(
+                        "type",
+                        "STRING",
+                        "description",
+                        "Short note or description of the transaction"));
+        properties.put(
+                "transcript",
+                Map.of(
+                        "type",
+                        "STRING",
+                        "description",
+                        "The user's spoken words transcribed in the original language"));
 
         Map<String, Object> responseSchema = new HashMap<>();
         responseSchema.put("type", "OBJECT");
@@ -146,7 +196,8 @@ public class VoiceService {
     }
 
     private String callGeminiApi(Map<String, Object> requestBody) {
-        return restClient.post()
+        return restClient
+                .post()
                 .uri(apiUrl + "?key=" + apiKey)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(requestBody)
@@ -154,7 +205,8 @@ public class VoiceService {
                 .body(String.class);
     }
 
-    public VoiceResponse parseGeminiResponse(String responseRaw, List<String> validCategories) throws IOException {
+    public VoiceResponse parseGeminiResponse(String responseRaw, List<String> validCategories)
+            throws IOException {
         JsonNode rootNode = jsonMapper.readTree(responseRaw);
         JsonNode candidate = rootNode.path("candidates").get(0);
 
@@ -162,10 +214,8 @@ public class VoiceService {
             throw new IllegalStateException("Did not get response from AI model.");
         }
 
-        String extractedJsonText = candidate
-                .path("content")
-                .path("parts").get(0)
-                .path("text").asString();
+        String extractedJsonText =
+                candidate.path("content").path("parts").get(0).path("text").asString();
 
         if (extractedJsonText != null) {
             extractedJsonText = extractedJsonText.trim();
@@ -188,7 +238,8 @@ public class VoiceService {
         }
 
         String type = response.type();
-        if (type == null || (!"EXPENSE".equalsIgnoreCase(type) && !"INCOME".equalsIgnoreCase(type))) {
+        if (type == null
+                || (!"EXPENSE".equalsIgnoreCase(type) && !"INCOME".equalsIgnoreCase(type))) {
             type = "EXPENSE";
         } else {
             type = type.toUpperCase();
@@ -199,8 +250,6 @@ public class VoiceService {
                 type,
                 category,
                 response.note() != null ? response.note() : "",
-                response.transcript() != null ? response.transcript() : ""
-        );
+                response.transcript() != null ? response.transcript() : "");
     }
-
 }

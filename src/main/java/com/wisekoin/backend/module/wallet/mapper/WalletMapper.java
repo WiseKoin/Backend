@@ -6,14 +6,8 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class WalletMapper {
-
     public WalletResponse toResponse(Wallet wallet) {
         return new WalletResponse(
-                wallet.getId(),
-                wallet.getName(),
-                wallet.getType(),
-                wallet.getBalance()
-        );
+                wallet.getId(), wallet.getName(), wallet.getType(), wallet.getBalance());
     }
-
 }

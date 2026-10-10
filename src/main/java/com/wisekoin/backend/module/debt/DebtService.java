@@ -2,29 +2,27 @@ package com.wisekoin.backend.module.debt;
 
 import com.wisekoin.backend.module.common.exception.BadRequestException;
 import com.wisekoin.backend.module.common.exception.ResourceNotFoundException;
+import com.wisekoin.backend.module.debt.dto.DebtRepaymentRequest;
+import com.wisekoin.backend.module.debt.dto.DebtRequest;
+import com.wisekoin.backend.module.debt.dto.DebtUpdateRequest;
 import com.wisekoin.backend.module.transaction.Transaction;
+import com.wisekoin.backend.module.transaction.TransactionRepository;
 import com.wisekoin.backend.module.transaction.TransactionService;
 import com.wisekoin.backend.module.transaction.dto.TransactionRequest;
-import com.wisekoin.backend.module.debt.dto.DebtRequest;
-import com.wisekoin.backend.module.debt.dto.DebtRepaymentRequest;
-import com.wisekoin.backend.module.debt.dto.DebtUpdateRequest;
-import com.wisekoin.backend.module.transaction.TransactionRepository;
 import com.wisekoin.backend.module.user.User;
 import com.wisekoin.backend.module.user.UserRepository;
 import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class DebtService {
-
     private final DebtRepository debtRepository;
     private final UserRepository userRepository;
     private final TransactionService transactionService;
@@ -53,19 +51,24 @@ public class DebtService {
     public List<Debt> getDebts(Long userId, Debt.DebtStatus status) {
         List<Debt> debts;
         if (status != null) {
-            debts = debtRepository.findAllByUserIdAndStatusInOrderByDueDateAsc(userId, List.of(status));
+            debts =
+                    debtRepository.findAllByUserIdAndStatusInOrderByDueDateAsc(
+                            userId, List.of(status));
         } else {
-            debts = debtRepository.findAllByUserIdAndStatusInOrderByDueDateAsc(userId,
-                    List.of(Debt.DebtStatus.PENDING, Debt.DebtStatus.OVERDUE));
+            debts =
+                    debtRepository.findAllByUserIdAndStatusInOrderByDueDateAsc(
+                            userId, List.of(Debt.DebtStatus.PENDING, Debt.DebtStatus.OVERDUE));
         }
         refreshOverdue(debts);
         return debts;
     }
 
     public Debt getDebtById(Long userId, Long debtId) {
-        return debtRepository.findById(debtId)
+        return debtRepository
+                .findById(debtId)
                 .filter(d -> d.getUser().getId().equals(userId))
-                .orElseThrow(() -> new ResourceNotFoundException("Debt not found or access denied"));
+                .orElseThrow(
+                        () -> new ResourceNotFoundException("Debt not found or access denied"));
     }
 
     @Transactional
@@ -80,12 +83,14 @@ public class DebtService {
         txRequest.setWalletId(request.getWalletId());
         txRequest.setCategoryId(request.getCategoryId());
         txRequest.setAmount(request.getAmount());
-        txRequest.setType(debt.getType() == Debt.DebtType.LEND
-                ? Transaction.TransactionType.INCOME
-                : Transaction.TransactionType.EXPENSE);
-        txRequest.setNote(request.getNote() != null
-                ? request.getNote()
-                : "Repayment - " + debt.getCounterpartName());
+        txRequest.setType(
+                debt.getType() == Debt.DebtType.LEND
+                        ? Transaction.TransactionType.INCOME
+                        : Transaction.TransactionType.EXPENSE);
+        txRequest.setNote(
+                request.getNote() != null
+                        ? request.getNote()
+                        : "Repayment - " + debt.getCounterpartName());
         txRequest.setDebtId(debtId);
 
         transactionService.createTransaction(userId, txRequest);
@@ -100,8 +105,10 @@ public class DebtService {
 
     @Transactional
     public void adjustRepayment(Long debtId, BigDecimal amount) {
-        Debt debt = debtRepository.findById(debtId)
-                .orElseThrow(() -> new ResourceNotFoundException("Debt not found"));
+        Debt debt =
+                debtRepository
+                        .findById(debtId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Debt not found"));
 
         BigDecimal newRemaining = debt.getRemainingAmount().subtract(amount);
         if (newRemaining.compareTo(BigDecimal.ZERO) < 0) {
@@ -119,18 +126,26 @@ public class DebtService {
     @Transactional
     public Debt updateDebt(Long userId, Long debtId, DebtRequest request) {
         Debt debt = getDebtById(userId, debtId);
-        applyUpdate(debt, request.getCounterpartName(), request.getType(), request.getTotalAmount(),
-                request.getDueDate(), request.getNote());
+        applyUpdate(
+                debt,
+                request.getCounterpartName(),
+                request.getType(),
+                request.getTotalAmount(),
+                request.getDueDate(),
+                request.getNote());
         return debtRepository.save(debt);
     }
 
     @Transactional
     public Debt patchDebt(Long userId, Long debtId, DebtUpdateRequest request) {
         Debt debt = getDebtById(userId, debtId);
-        String counterpartName = request.getCounterpartName() != null
-                ? request.getCounterpartName() : debt.getCounterpartName();
+        String counterpartName =
+                request.getCounterpartName() != null
+                        ? request.getCounterpartName()
+                        : debt.getCounterpartName();
         Debt.DebtType type = request.getType() != null ? request.getType() : debt.getType();
-        BigDecimal total = request.getTotalAmount() != null ? request.getTotalAmount() : debt.getTotalAmount();
+        BigDecimal total =
+                request.getTotalAmount() != null ? request.getTotalAmount() : debt.getTotalAmount();
         LocalDate dueDate = request.isDueDateSet() ? request.getDueDate() : debt.getDueDate();
         String note = request.isNoteSet() ? request.getNote() : debt.getNote();
         applyUpdate(debt, counterpartName, type, total, dueDate, note);
@@ -146,8 +161,13 @@ public class DebtService {
         debtRepository.delete(debt);
     }
 
-    private void applyUpdate(Debt debt, String counterpartName, Debt.DebtType type,
-                             BigDecimal totalAmount, LocalDate dueDate, String note) {
+    private void applyUpdate(
+            Debt debt,
+            String counterpartName,
+            Debt.DebtType type,
+            BigDecimal totalAmount,
+            LocalDate dueDate,
+            String note) {
         if (counterpartName == null || counterpartName.isBlank()) {
             throw new BadRequestException("Counterpart name cannot be blank");
         }
@@ -155,12 +175,14 @@ public class DebtService {
             throw new BadRequestException("Debt type and a positive total amount are required");
         }
         if (type != debt.getType() && transactionRepository.existsByDebtId(debt.getId())) {
-            throw new BadRequestException("Cannot change the type of a debt with repayment transactions");
+            throw new BadRequestException(
+                    "Cannot change the type of a debt with repayment transactions");
         }
 
         BigDecimal paidAmount = debt.getTotalAmount().subtract(debt.getRemainingAmount());
         if (totalAmount.compareTo(paidAmount) < 0) {
-            throw new BadRequestException("Total amount cannot be less than the amount already repaid");
+            throw new BadRequestException(
+                    "Total amount cannot be less than the amount already repaid");
         }
         debt.setCounterpartName(counterpartName);
         debt.setType(type);
@@ -191,5 +213,4 @@ public class DebtService {
             }
         }
     }
-
 }

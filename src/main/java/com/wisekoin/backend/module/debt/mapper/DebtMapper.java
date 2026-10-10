@@ -6,7 +6,6 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class DebtMapper {
-
     public DebtResponse toResponse(Debt debt) {
         return DebtResponse.builder()
                 .id(debt.getId())
@@ -20,5 +19,4 @@ public class DebtMapper {
                 .note(debt.getNote())
                 .build();
     }
-
 }

@@ -11,7 +11,6 @@ import org.springframework.transaction.event.TransactionalEventListener;
 @Component
 @RequiredArgsConstructor
 public class DebtEventListener {
-
     private final DebtService debtService;
 
     @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
@@ -37,5 +36,4 @@ public class DebtEventListener {
             debtService.adjustRepayment(event.getDebtId(), event.getAmount().negate());
         }
     }
-
 }

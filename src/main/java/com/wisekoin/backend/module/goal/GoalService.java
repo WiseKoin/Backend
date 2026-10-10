@@ -2,8 +2,8 @@ package com.wisekoin.backend.module.goal;
 
 import com.wisekoin.backend.module.common.exception.BadRequestException;
 import com.wisekoin.backend.module.common.exception.ResourceNotFoundException;
-import com.wisekoin.backend.module.goal.dto.GoalRequest;
 import com.wisekoin.backend.module.goal.dto.GoalFundRequest;
+import com.wisekoin.backend.module.goal.dto.GoalRequest;
 import com.wisekoin.backend.module.goal.dto.GoalUpdateRequest;
 import com.wisekoin.backend.module.transaction.Transaction;
 import com.wisekoin.backend.module.transaction.TransactionRepository;
@@ -12,18 +12,16 @@ import com.wisekoin.backend.module.transaction.dto.TransactionRequest;
 import com.wisekoin.backend.module.user.User;
 import com.wisekoin.backend.module.user.UserRepository;
 import jakarta.transaction.Transactional;
+import java.math.BigDecimal;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-
-import java.math.BigDecimal;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class GoalService {
-
     private final GoalRepository goalRepository;
     private final UserRepository userRepository;
     private final TransactionRepository transactionRepository;
@@ -51,9 +49,11 @@ public class GoalService {
     }
 
     public Goal getGoalById(Long userId, Long goalId) {
-        return goalRepository.findById(goalId)
+        return goalRepository
+                .findById(goalId)
                 .filter(g -> g.getUser().getId().equals(userId))
-                .orElseThrow(() -> new ResourceNotFoundException("Goal not found or access denied"));
+                .orElseThrow(
+                        () -> new ResourceNotFoundException("Goal not found or access denied"));
     }
 
     @Transactional
@@ -69,9 +69,8 @@ public class GoalService {
         transaction.setCategoryId(request.getCategoryId());
         transaction.setAmount(request.getAmount());
         transaction.setType(Transaction.TransactionType.TRANSFER);
-        transaction.setNote(request.getNote() != null
-                ? request.getNote()
-                : "Fund goal - " + goal.getName());
+        transaction.setNote(
+                request.getNote() != null ? request.getNote() : "Fund goal - " + goal.getName());
         transaction.setGoalId(goalId);
 
         transactionService.createTransaction(userId, transaction);
@@ -86,8 +85,10 @@ public class GoalService {
 
     @Transactional
     public void adjustFund(Long goalId, BigDecimal amount) {
-        Goal goal = goalRepository.findById(goalId)
-                .orElseThrow(() -> new ResourceNotFoundException("Goal not found"));
+        Goal goal =
+                goalRepository
+                        .findById(goalId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Goal not found"));
 
         BigDecimal currentAmount = goal.getCurrentAmount().add(amount);
         if (currentAmount.compareTo(BigDecimal.ZERO) < 0) {
@@ -108,9 +109,12 @@ public class GoalService {
     @Transactional
     public Goal patchGoal(Long userId, Long goalId, GoalUpdateRequest request) {
         Goal goal = getGoalById(userId, goalId);
-        applyUpdate(goal,
+        applyUpdate(
+                goal,
                 request.getName() != null ? request.getName() : goal.getName(),
-                request.getTargetAmount() != null ? request.getTargetAmount() : goal.getTargetAmount(),
+                request.getTargetAmount() != null
+                        ? request.getTargetAmount()
+                        : goal.getTargetAmount(),
                 request.isDeadlineSet() ? request.getDeadline() : goal.getDeadline());
         return goalRepository.save(goal);
     }
@@ -124,7 +128,8 @@ public class GoalService {
         goalRepository.delete(goal);
     }
 
-    private void applyUpdate(Goal goal, String name, BigDecimal targetAmount, java.time.LocalDate deadline) {
+    private void applyUpdate(
+            Goal goal, String name, BigDecimal targetAmount, java.time.LocalDate deadline) {
         if (name == null || name.isBlank()) {
             throw new BadRequestException("Goal name cannot be blank");
         }
@@ -141,9 +146,9 @@ public class GoalService {
         if (goal.getStatus() == Goal.GoalStatus.CANCELLED) {
             return;
         }
-        goal.setStatus(goal.getCurrentAmount().compareTo(goal.getTargetAmount()) >= 0
-                ? Goal.GoalStatus.ACHIEVED
-                : Goal.GoalStatus.IN_PROGRESS);
+        goal.setStatus(
+                goal.getCurrentAmount().compareTo(goal.getTargetAmount()) >= 0
+                        ? Goal.GoalStatus.ACHIEVED
+                        : Goal.GoalStatus.IN_PROGRESS);
     }
-
 }

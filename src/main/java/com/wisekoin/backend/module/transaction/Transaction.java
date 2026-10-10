@@ -1,17 +1,26 @@
 package com.wisekoin.backend.module.transaction;
 
 import com.wisekoin.backend.module.category.Category;
+import com.wisekoin.backend.module.debt.Debt;
 import com.wisekoin.backend.module.goal.Goal;
 import com.wisekoin.backend.module.user.User;
 import com.wisekoin.backend.module.wallet.Wallet;
-import com.wisekoin.backend.module.debt.Debt;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "transactions")
@@ -19,7 +28,6 @@ import java.time.LocalDateTime;
 @Setter
 @NoArgsConstructor
 public class Transaction {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -62,7 +70,8 @@ public class Transaction {
     private LocalDateTime transactionDate;
 
     public enum TransactionType {
-        INCOME, EXPENSE, TRANSFER
+        INCOME,
+        EXPENSE,
+        TRANSFER
     }
-
 }

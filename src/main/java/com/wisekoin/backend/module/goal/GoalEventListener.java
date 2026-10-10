@@ -11,7 +11,6 @@ import org.springframework.transaction.event.TransactionalEventListener;
 @Component
 @RequiredArgsConstructor
 public class GoalEventListener {
-
     private final GoalService goalService;
 
     @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
@@ -37,5 +36,4 @@ public class GoalEventListener {
             goalService.adjustFund(event.getGoalId(), event.getAmount().negate());
         }
     }
-
 }

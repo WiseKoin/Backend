@@ -1,31 +1,29 @@
 package com.wisekoin.backend.module.category;
 
-import com.wisekoin.backend.module.user.User;
-import com.wisekoin.backend.module.user.UserRepository;
 import com.wisekoin.backend.module.category.dto.CategoryRequest;
 import com.wisekoin.backend.module.category.dto.CategoryUpdateRequest;
 import com.wisekoin.backend.module.common.exception.BadRequestException;
 import com.wisekoin.backend.module.common.exception.ResourceNotFoundException;
 import com.wisekoin.backend.module.transaction.TransactionRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
+import com.wisekoin.backend.module.user.User;
+import com.wisekoin.backend.module.user.UserRepository;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.Optional;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class CategoryService {
-
     private final CategoryRepository categoryRepository;
     private final UserRepository userRepository;
     private final TransactionRepository transactionRepository;
 
-    public Category createCategory(Long userId, String name, Category.CategoryType type, String icon) {
+    public Category createCategory(
+            Long userId, String name, Category.CategoryType type, String icon) {
         Category newCategory = new Category();
 
         User userProxy = userRepository.getReferenceById(userId);
@@ -42,27 +40,42 @@ public class CategoryService {
         User userProxy = userRepository.getReferenceById(userId);
 
         List<Category> userCategories = categoryRepository.findAllByUserId(userId);
-        Set<String> existingNames = userCategories.stream()
-                .map(c -> c.getName() != null ? c.getName().trim().toLowerCase() : "")
-                .collect(Collectors.toSet());
+        Set<String> existingNames =
+                userCategories.stream()
+                        .map(c -> c.getName() != null ? c.getName().trim().toLowerCase() : "")
+                        .collect(Collectors.toSet());
 
-        List<Category> defaults = List.of(
-                createCategoryEntity(userProxy, "Dining", Category.CategoryType.EXPENSE, "dining"),
-                createCategoryEntity(userProxy, "Coffee", Category.CategoryType.EXPENSE, "coffee"),
-                createCategoryEntity(userProxy, "Transport", Category.CategoryType.EXPENSE, "transport"),
-                createCategoryEntity(userProxy, "Shopping", Category.CategoryType.EXPENSE, "shopping"),
-                createCategoryEntity(userProxy, "Entertainment", Category.CategoryType.EXPENSE, "sports_esports"),
-                createCategoryEntity(userProxy, "Education", Category.CategoryType.EXPENSE, "education"),
-                createCategoryEntity(userProxy, "Salary", Category.CategoryType.INCOME, "salary"),
-                createCategoryEntity(userProxy, "Bonus", Category.CategoryType.INCOME, "income"),
-                createCategoryEntity(userProxy, "Other Income", Category.CategoryType.INCOME, "money"),
-                createCategoryEntity(userProxy, "Lend", Category.CategoryType.LEND, "lend"),
-                createCategoryEntity(userProxy, "Borrow", Category.CategoryType.BORROW, "borrow")
-        );
+        List<Category> defaults =
+                List.of(
+                        createCategoryEntity(
+                                userProxy, "Dining", Category.CategoryType.EXPENSE, "dining"),
+                        createCategoryEntity(
+                                userProxy, "Coffee", Category.CategoryType.EXPENSE, "coffee"),
+                        createCategoryEntity(
+                                userProxy, "Transport", Category.CategoryType.EXPENSE, "transport"),
+                        createCategoryEntity(
+                                userProxy, "Shopping", Category.CategoryType.EXPENSE, "shopping"),
+                        createCategoryEntity(
+                                userProxy,
+                                "Entertainment",
+                                Category.CategoryType.EXPENSE,
+                                "sports_esports"),
+                        createCategoryEntity(
+                                userProxy, "Education", Category.CategoryType.EXPENSE, "education"),
+                        createCategoryEntity(
+                                userProxy, "Salary", Category.CategoryType.INCOME, "salary"),
+                        createCategoryEntity(
+                                userProxy, "Bonus", Category.CategoryType.INCOME, "income"),
+                        createCategoryEntity(
+                                userProxy, "Other Income", Category.CategoryType.INCOME, "money"),
+                        createCategoryEntity(userProxy, "Lend", Category.CategoryType.LEND, "lend"),
+                        createCategoryEntity(
+                                userProxy, "Borrow", Category.CategoryType.BORROW, "borrow"));
 
-        List<Category> toSave = defaults.stream()
-                .filter(c -> !existingNames.contains(c.getName().trim().toLowerCase()))
-                .toList();
+        List<Category> toSave =
+                defaults.stream()
+                        .filter(c -> !existingNames.contains(c.getName().trim().toLowerCase()))
+                        .toList();
 
         if (!toSave.isEmpty()) {
             categoryRepository.saveAll(toSave);
@@ -78,7 +91,8 @@ public class CategoryService {
         return existing;
     }
 
-    private Category createCategoryEntity(User userProxy, String name, Category.CategoryType type, String icon) {
+    private Category createCategoryEntity(
+            User userProxy, String name, Category.CategoryType type, String icon) {
         Category category = new Category();
         category.setUser(userProxy);
         category.setName(name);
@@ -129,8 +143,10 @@ public class CategoryService {
     }
 
     private Category getOwnedCategory(Long userId, Long categoryId) {
-        return categoryRepository.findById(categoryId)
+        return categoryRepository
+                .findById(categoryId)
                 .filter(category -> category.getUser().getId().equals(userId))
-                .orElseThrow(() -> new ResourceNotFoundException("Category not found or access denied"));
+                .orElseThrow(
+                        () -> new ResourceNotFoundException("Category not found or access denied"));
     }
 }

@@ -1,7 +1,11 @@
 package com.wisekoin.backend.module.transaction;
 
-import com.wisekoin.backend.module.common.event.TransactionDeletedEvent;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+
 import com.wisekoin.backend.module.common.event.TransactionCreatedEvent;
+import com.wisekoin.backend.module.common.event.TransactionDeletedEvent;
 import com.wisekoin.backend.module.common.event.TransactionUpdatedEvent;
 import com.wisekoin.backend.module.debt.DebtEventListener;
 import com.wisekoin.backend.module.debt.DebtService;
@@ -9,24 +13,29 @@ import com.wisekoin.backend.module.goal.GoalEventListener;
 import com.wisekoin.backend.module.goal.GoalService;
 import com.wisekoin.backend.module.wallet.WalletEventListener;
 import com.wisekoin.backend.module.wallet.WalletService;
+import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 
-import java.math.BigDecimal;
-
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-
 class TransactionCompensationListenerTest {
-
     @Test
     void updateReversesOldWalletEffectBeforeApplyingNewEffect() {
         WalletService walletService = mock(WalletService.class);
         WalletEventListener listener = new WalletEventListener(walletService);
-        TransactionUpdatedEvent event = new TransactionUpdatedEvent(
-                1L, null, new BigDecimal("25.00"), Transaction.TransactionType.EXPENSE, null, null,
-                2L, null, new BigDecimal("40.00"), Transaction.TransactionType.INCOME, null, null);
+        TransactionUpdatedEvent event =
+                new TransactionUpdatedEvent(
+                        1L,
+                        null,
+                        new BigDecimal("25.00"),
+                        Transaction.TransactionType.EXPENSE,
+                        null,
+                        null,
+                        2L,
+                        null,
+                        new BigDecimal("40.00"),
+                        Transaction.TransactionType.INCOME,
+                        null,
+                        null);
 
         listener.handleTransactionUpdated(event);
 
@@ -42,12 +51,18 @@ class TransactionCompensationListenerTest {
         GoalService goalService = mock(GoalService.class);
         BigDecimal amount = new BigDecimal("15.00");
 
-        new WalletEventListener(walletService).handleTransactionDeleted(
-                new TransactionDeletedEvent(1L, null, amount, Transaction.TransactionType.EXPENSE, null, null));
-        new DebtEventListener(debtService).handleTransactionDeleted(
-                new TransactionDeletedEvent(1L, null, amount, Transaction.TransactionType.INCOME, 3L, null));
-        new GoalEventListener(goalService).handleTransactionDeleted(
-                new TransactionDeletedEvent(1L, null, amount, Transaction.TransactionType.TRANSFER, null, 4L));
+        new WalletEventListener(walletService)
+                .handleTransactionDeleted(
+                        new TransactionDeletedEvent(
+                                1L, null, amount, Transaction.TransactionType.EXPENSE, null, null));
+        new DebtEventListener(debtService)
+                .handleTransactionDeleted(
+                        new TransactionDeletedEvent(
+                                1L, null, amount, Transaction.TransactionType.INCOME, 3L, null));
+        new GoalEventListener(goalService)
+                .handleTransactionDeleted(
+                        new TransactionDeletedEvent(
+                                1L, null, amount, Transaction.TransactionType.TRANSFER, null, 4L));
 
         verify(walletService).updateBalance(1L, amount);
         verify(debtService).adjustRepayment(3L, amount.negate());
@@ -58,9 +73,20 @@ class TransactionCompensationListenerTest {
     void updateMovesRepaymentAndFundingBetweenLinkedEntities() {
         DebtService debtService = mock(DebtService.class);
         GoalService goalService = mock(GoalService.class);
-        TransactionUpdatedEvent event = new TransactionUpdatedEvent(
-                1L, null, new BigDecimal("10.00"), Transaction.TransactionType.INCOME, 3L, null,
-                1L, null, new BigDecimal("12.00"), Transaction.TransactionType.TRANSFER, null, 4L);
+        TransactionUpdatedEvent event =
+                new TransactionUpdatedEvent(
+                        1L,
+                        null,
+                        new BigDecimal("10.00"),
+                        Transaction.TransactionType.INCOME,
+                        3L,
+                        null,
+                        1L,
+                        null,
+                        new BigDecimal("12.00"),
+                        Transaction.TransactionType.TRANSFER,
+                        null,
+                        4L);
 
         new DebtEventListener(debtService).handleTransactionUpdated(event);
         new GoalEventListener(goalService).handleTransactionUpdated(event);
@@ -75,10 +101,12 @@ class TransactionCompensationListenerTest {
         WalletEventListener listener = new WalletEventListener(walletService);
         BigDecimal amount = new BigDecimal("30.00");
 
-        listener.handleTransactionCreated(new TransactionCreatedEvent(
-                1L, 2L, amount, Transaction.TransactionType.TRANSFER, null, null));
-        listener.handleTransactionDeleted(new TransactionDeletedEvent(
-                1L, 2L, amount, Transaction.TransactionType.TRANSFER, null, null));
+        listener.handleTransactionCreated(
+                new TransactionCreatedEvent(
+                        1L, 2L, amount, Transaction.TransactionType.TRANSFER, null, null));
+        listener.handleTransactionDeleted(
+                new TransactionDeletedEvent(
+                        1L, 2L, amount, Transaction.TransactionType.TRANSFER, null, null));
 
         InOrder calls = inOrder(walletService);
         calls.verify(walletService).updateBalance(1L, amount.negate());

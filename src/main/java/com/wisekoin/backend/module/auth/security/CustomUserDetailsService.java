@@ -1,19 +1,16 @@
 package com.wisekoin.backend.module.auth.security;
 
+import com.wisekoin.backend.module.user.User;
+import com.wisekoin.backend.module.user.UserService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import com.wisekoin.backend.module.user.User;
-import com.wisekoin.backend.module.user.UserService;
-
-import lombok.RequiredArgsConstructor;
-
 @Service
 @RequiredArgsConstructor
 public class CustomUserDetailsService implements UserDetailsService {
-
     private final UserService userService;
 
     @Override
@@ -22,5 +19,4 @@ public class CustomUserDetailsService implements UserDetailsService {
 
         return new CustomUserDetails(user);
     }
-
 }

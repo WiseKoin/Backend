@@ -20,13 +20,6 @@ import com.wisekoin.backend.module.user.UserRepository;
 import com.wisekoin.backend.module.wallet.Wallet;
 import com.wisekoin.backend.module.wallet.WalletRepository;
 import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
-import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.Month;
@@ -34,11 +27,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
 public class TransactionService {
-
     private final TransactionRepository transactionRepository;
     private final UserRepository userRepository;
     private final WalletRepository walletRepository;
@@ -51,8 +49,14 @@ public class TransactionService {
     public Transaction createTransaction(Long userId, TransactionRequest request) {
         Wallet wallet = getOwnedWallet(userId, request.getWalletId());
         Category category = getOwnedCategory(userId, request.getCategoryId());
-        Wallet destinationWallet = validateLinks(userId, wallet.getId(), request.getType(),
-                request.getDebtId(), request.getGoalId(), request.getDestinationWalletId());
+        Wallet destinationWallet =
+                validateLinks(
+                        userId,
+                        wallet.getId(),
+                        request.getType(),
+                        request.getDebtId(),
+                        request.getGoalId(),
+                        request.getDestinationWalletId());
 
         Transaction newTransaction = new Transaction();
         User userProxy = userRepository.getReferenceById(userId);
@@ -67,8 +71,7 @@ public class TransactionService {
         newTransaction.setTransactionDate(
                 request.getTransactionDate() != null
                         ? request.getTransactionDate()
-                        : LocalDateTime.now()
-        );
+                        : LocalDateTime.now());
 
         if (request.getDebtId() != null) {
             Debt debt = debtRepository.getReferenceById(request.getDebtId());
@@ -82,62 +85,87 @@ public class TransactionService {
 
         Transaction savedTransaction = transactionRepository.save(newTransaction);
 
-        eventPublisher.publishEvent(new TransactionCreatedEvent(
-                wallet.getId(),
-                request.getDestinationWalletId(),
-                savedTransaction.getAmount(),
-                savedTransaction.getType(),
-                request.getDebtId(),
-                request.getGoalId()
-        ));
+        eventPublisher.publishEvent(
+                new TransactionCreatedEvent(
+                        wallet.getId(),
+                        request.getDestinationWalletId(),
+                        savedTransaction.getAmount(),
+                        savedTransaction.getType(),
+                        request.getDebtId(),
+                        request.getGoalId()));
 
         return savedTransaction;
     }
 
     @Transactional
-    public Transaction updateTransaction(Long userId, Long transactionId, TransactionRequest request) {
-        Transaction transaction = getOwnedTransaction(userId, transactionId);
-        return updateTransaction(transaction, userId, request.getWalletId(), request.getCategoryId(),
-                request.getAmount(), request.getType(), request.getNote(), request.getTransactionDate(),
-                request.getDebtId(), request.getGoalId(), request.getDestinationWalletId());
-    }
-
-    @Transactional
-    public Transaction patchTransaction(Long userId, Long transactionId, TransactionUpdateRequest request) {
+    public Transaction updateTransaction(
+            Long userId, Long transactionId, TransactionRequest request) {
         Transaction transaction = getOwnedTransaction(userId, transactionId);
         return updateTransaction(
                 transaction,
                 userId,
-                request.getWalletId() != null ? request.getWalletId() : transaction.getWallet().getId(),
-                request.getCategoryId() != null ? request.getCategoryId() : transaction.getCategory().getId(),
+                request.getWalletId(),
+                request.getCategoryId(),
+                request.getAmount(),
+                request.getType(),
+                request.getNote(),
+                request.getTransactionDate(),
+                request.getDebtId(),
+                request.getGoalId(),
+                request.getDestinationWalletId());
+    }
+
+    @Transactional
+    public Transaction patchTransaction(
+            Long userId, Long transactionId, TransactionUpdateRequest request) {
+        Transaction transaction = getOwnedTransaction(userId, transactionId);
+        return updateTransaction(
+                transaction,
+                userId,
+                request.getWalletId() != null
+                        ? request.getWalletId()
+                        : transaction.getWallet().getId(),
+                request.getCategoryId() != null
+                        ? request.getCategoryId()
+                        : transaction.getCategory().getId(),
                 request.getAmount() != null ? request.getAmount() : transaction.getAmount(),
                 request.getType() != null ? request.getType() : transaction.getType(),
                 request.isNoteSet() ? request.getNote() : transaction.getNote(),
-                request.getTransactionDate() != null ? request.getTransactionDate() : transaction.getTransactionDate(),
+                request.getTransactionDate() != null
+                        ? request.getTransactionDate()
+                        : transaction.getTransactionDate(),
                 request.isDebtIdSet() ? request.getDebtId() : idOf(transaction.getDebt()),
                 request.isGoalIdSet() ? request.getGoalId() : idOf(transaction.getGoal()),
                 request.isDestinationWalletIdSet()
                         ? request.getDestinationWalletId()
-                        : idOf(transaction.getDestinationWallet())
-        );
+                        : idOf(transaction.getDestinationWallet()));
     }
 
     @Transactional
     public void deleteTransaction(Long userId, Long transactionId) {
         Transaction transaction = getOwnedTransaction(userId, transactionId);
-        TransactionDeletedEvent event = new TransactionDeletedEvent(
-                transaction.getWallet().getId(), idOf(transaction.getDestinationWallet()),
-                transaction.getAmount(), transaction.getType(),
-                idOf(transaction.getDebt()), idOf(transaction.getGoal()));
+        TransactionDeletedEvent event =
+                new TransactionDeletedEvent(
+                        transaction.getWallet().getId(), idOf(transaction.getDestinationWallet()),
+                        transaction.getAmount(), transaction.getType(),
+                        idOf(transaction.getDebt()), idOf(transaction.getGoal()));
 
         transactionRepository.delete(transaction);
         eventPublisher.publishEvent(event);
     }
 
-    private Transaction updateTransaction(Transaction transaction, Long userId, Long walletId, Long categoryId,
-                                          BigDecimal amount, Transaction.TransactionType type, String note,
-                                          LocalDateTime transactionDate, Long debtId, Long goalId,
-                                          Long destinationWalletId) {
+    private Transaction updateTransaction(
+            Transaction transaction,
+            Long userId,
+            Long walletId,
+            Long categoryId,
+            BigDecimal amount,
+            Transaction.TransactionType type,
+            String note,
+            LocalDateTime transactionDate,
+            Long debtId,
+            Long goalId,
+            Long destinationWalletId) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BadRequestException("Amount must be greater than 0");
         }
@@ -147,14 +175,23 @@ public class TransactionService {
 
         Wallet wallet = getOwnedWallet(userId, walletId);
         Category category = getOwnedCategory(userId, categoryId);
-        Wallet destinationWallet = validateLinks(
-                userId, walletId, type, debtId, goalId, destinationWalletId);
+        Wallet destinationWallet =
+                validateLinks(userId, walletId, type, debtId, goalId, destinationWalletId);
 
-        TransactionUpdatedEvent event = new TransactionUpdatedEvent(
-                transaction.getWallet().getId(), idOf(transaction.getDestinationWallet()),
-                transaction.getAmount(), transaction.getType(),
-                idOf(transaction.getDebt()), idOf(transaction.getGoal()),
-                walletId, destinationWalletId, amount, type, debtId, goalId);
+        TransactionUpdatedEvent event =
+                new TransactionUpdatedEvent(
+                        transaction.getWallet().getId(),
+                        idOf(transaction.getDestinationWallet()),
+                        transaction.getAmount(),
+                        transaction.getType(),
+                        idOf(transaction.getDebt()),
+                        idOf(transaction.getGoal()),
+                        walletId,
+                        destinationWalletId,
+                        amount,
+                        type,
+                        debtId,
+                        goalId);
 
         transaction.setWallet(wallet);
         transaction.setDestinationWallet(destinationWallet);
@@ -162,7 +199,8 @@ public class TransactionService {
         transaction.setAmount(amount);
         transaction.setType(type);
         transaction.setNote(note);
-        transaction.setTransactionDate(transactionDate != null ? transactionDate : LocalDateTime.now());
+        transaction.setTransactionDate(
+                transactionDate != null ? transactionDate : LocalDateTime.now());
         transaction.setDebt(debtId != null ? debtRepository.getReferenceById(debtId) : null);
         transaction.setGoal(goalId != null ? goalRepository.getReferenceById(goalId) : null);
 
@@ -172,47 +210,70 @@ public class TransactionService {
     }
 
     private Transaction getOwnedTransaction(Long userId, Long transactionId) {
-        return transactionRepository.findById(transactionId)
+        return transactionRepository
+                .findById(transactionId)
                 .filter(t -> t.getUser().getId().equals(userId))
-                .orElseThrow(() -> new ResourceNotFoundException("Transaction not found or access denied"));
+                .orElseThrow(
+                        () ->
+                                new ResourceNotFoundException(
+                                        "Transaction not found or access denied"));
     }
 
     private Wallet getOwnedWallet(Long userId, Long walletId) {
-        return walletRepository.findById(walletId)
+        return walletRepository
+                .findById(walletId)
                 .filter(w -> w.getUser().getId().equals(userId))
-                .orElseThrow(() -> new ResourceNotFoundException("Wallet not found or access denied"));
+                .orElseThrow(
+                        () -> new ResourceNotFoundException("Wallet not found or access denied"));
     }
 
     private Category getOwnedCategory(Long userId, Long categoryId) {
-        return categoryRepository.findById(categoryId)
+        return categoryRepository
+                .findById(categoryId)
                 .filter(c -> c.getUser().getId().equals(userId))
-                .orElseThrow(() -> new ResourceNotFoundException("Category not found or access denied"));
+                .orElseThrow(
+                        () -> new ResourceNotFoundException("Category not found or access denied"));
     }
 
-    private Wallet validateLinks(Long userId, Long walletId, Transaction.TransactionType type,
-                                 Long debtId, Long goalId, Long destinationWalletId) {
-        int linkedTargets = (debtId != null ? 1 : 0)
-                + (goalId != null ? 1 : 0)
-                + (destinationWalletId != null ? 1 : 0);
+    private Wallet validateLinks(
+            Long userId,
+            Long walletId,
+            Transaction.TransactionType type,
+            Long debtId,
+            Long goalId,
+            Long destinationWalletId) {
+        int linkedTargets =
+                (debtId != null ? 1 : 0)
+                        + (goalId != null ? 1 : 0)
+                        + (destinationWalletId != null ? 1 : 0);
         if (linkedTargets > 1) {
             throw new BadRequestException(
                     "Transaction cannot be linked to more than one Debt, Goal, or destination Wallet");
         }
         if (debtId != null) {
-            Debt debt = debtRepository.findById(debtId)
-                    .filter(d -> d.getUser().getId().equals(userId))
-                    .orElseThrow(() -> new ResourceNotFoundException("Debt not found or access denied"));
-            if (debt.getType() == Debt.DebtType.LEND && type != Transaction.TransactionType.INCOME) {
+            Debt debt =
+                    debtRepository
+                            .findById(debtId)
+                            .filter(d -> d.getUser().getId().equals(userId))
+                            .orElseThrow(
+                                    () ->
+                                            new ResourceNotFoundException(
+                                                    "Debt not found or access denied"));
+            if (debt.getType() == Debt.DebtType.LEND
+                    && type != Transaction.TransactionType.INCOME) {
                 throw new BadRequestException("LEND debt repayment must have INCOME type");
             }
-            if (debt.getType() == Debt.DebtType.BORROW && type != Transaction.TransactionType.EXPENSE) {
+            if (debt.getType() == Debt.DebtType.BORROW
+                    && type != Transaction.TransactionType.EXPENSE) {
                 throw new BadRequestException("BORROW debt repayment must have EXPENSE type");
             }
         }
         if (goalId != null) {
-            goalRepository.findById(goalId)
+            goalRepository
+                    .findById(goalId)
                     .filter(g -> g.getUser().getId().equals(userId))
-                    .orElseThrow(() -> new ResourceNotFoundException("Goal not found or access denied"));
+                    .orElseThrow(
+                            () -> new ResourceNotFoundException("Goal not found or access denied"));
             if (type != Transaction.TransactionType.TRANSFER) {
                 throw new BadRequestException("Goal funding must use TRANSFER type");
             }
@@ -228,11 +289,13 @@ public class TransactionService {
             }
         }
         if (type == Transaction.TransactionType.TRANSFER
-                && goalId == null && destinationWalletId == null) {
+                && goalId == null
+                && destinationWalletId == null) {
             throw new BadRequestException("TRANSFER requires a Goal or destination Wallet");
         }
         if (type != Transaction.TransactionType.TRANSFER && destinationWalletId != null) {
-            throw new BadRequestException("Only TRANSFER transactions can have a destination Wallet");
+            throw new BadRequestException(
+                    "Only TRANSFER transactions can have a destination Wallet");
         }
         return destinationWallet;
     }
@@ -253,7 +316,8 @@ public class TransactionService {
         return transactionRepository.findAllByUserIdOrderByTransactionDateDesc(userId, pageable);
     }
 
-    public Page<Transaction> getFilteredTransactions(Long userId, TransactionFilterRequest filter, Pageable pageable) {
+    public Page<Transaction> getFilteredTransactions(
+            Long userId, TransactionFilterRequest filter, Pageable pageable) {
         Specification<Transaction> spec = TransactionSpecification.getFilterSpec(userId, filter);
         return transactionRepository.findAll(spec, pageable);
     }
@@ -262,31 +326,37 @@ public class TransactionService {
         LocalDateTime startOfYear = LocalDateTime.of(year, Month.JANUARY, 1, 0, 0);
         LocalDateTime endOfYear = LocalDateTime.of(year, Month.DECEMBER, 31, 23, 59, 59);
 
-        List<Transaction> yearlyTransactions = transactionRepository
-                .findAllByUserIdAndTransactionDateBetween(userId, startOfYear, endOfYear);
+        List<Transaction> yearlyTransactions =
+                transactionRepository.findAllByUserIdAndTransactionDateBetween(
+                        userId, startOfYear, endOfYear);
 
-        Map<Integer, List<Transaction>> transactionsByMonth = yearlyTransactions.stream()
-                .collect(Collectors.groupingBy(tx -> tx.getTransactionDate().getMonthValue()));
+        Map<Integer, List<Transaction>> transactionsByMonth =
+                yearlyTransactions.stream()
+                        .collect(
+                                Collectors.groupingBy(
+                                        tx -> tx.getTransactionDate().getMonthValue()));
 
         List<MonthlyStatsResponse> statsList = new ArrayList<>();
 
         for (int month = 1; month <= 12; month++) {
-            List<Transaction> txInMonth = transactionsByMonth.getOrDefault(month, new ArrayList<>());
+            List<Transaction> txInMonth =
+                    transactionsByMonth.getOrDefault(month, new ArrayList<>());
 
-            BigDecimal totalIncome = txInMonth.stream()
-                    .filter(tx -> tx.getType() == Transaction.TransactionType.INCOME)
-                    .map(Transaction::getAmount)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal totalIncome =
+                    txInMonth.stream()
+                            .filter(tx -> tx.getType() == Transaction.TransactionType.INCOME)
+                            .map(Transaction::getAmount)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-            BigDecimal totalExpense = txInMonth.stream()
-                    .filter(tx -> tx.getType() == Transaction.TransactionType.EXPENSE)
-                    .map(Transaction::getAmount)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal totalExpense =
+                    txInMonth.stream()
+                            .filter(tx -> tx.getType() == Transaction.TransactionType.EXPENSE)
+                            .map(Transaction::getAmount)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
 
             statsList.add(new MonthlyStatsResponse(month, year, totalIncome, totalExpense));
         }
 
         return statsList;
     }
-
 }
