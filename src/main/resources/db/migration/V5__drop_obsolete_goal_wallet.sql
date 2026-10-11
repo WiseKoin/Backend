@@ -1,0 +1,2 @@
+ALTER TABLE goals
+    DROP COLUMN IF EXISTS wallet_id;

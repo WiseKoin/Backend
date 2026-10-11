@@ -35,6 +35,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleInsufficientBalance(
             InsufficientBalanceException e) {
         Map<String, String> body = new HashMap<>();
+        body.put("code", "INSUFFICIENT_BALANCE");
         body.put("error", e.getMessage());
         return ResponseEntity.badRequest().body(body);
     }

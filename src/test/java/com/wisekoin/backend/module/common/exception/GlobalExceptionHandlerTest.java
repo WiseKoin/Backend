@@ -18,4 +18,17 @@ class GlobalExceptionHandlerTest {
         assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
         assertEquals(Map.of("error", "Invalid credentials"), response.getBody());
     }
+
+    @Test
+    void insufficientBalanceReturnsStableErrorCode() {
+        GlobalExceptionHandler handler = new GlobalExceptionHandler();
+
+        ResponseEntity<Map<String, String>> response =
+                handler.handleInsufficientBalance(
+                        new InsufficientBalanceException("Insufficient balance in the wallet"));
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("INSUFFICIENT_BALANCE", response.getBody().get("code"));
+        assertEquals("Insufficient balance in the wallet", response.getBody().get("error"));
+    }
 }

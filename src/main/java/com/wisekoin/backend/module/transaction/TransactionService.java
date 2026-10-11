@@ -48,7 +48,7 @@ public class TransactionService {
     @Transactional
     public Transaction createTransaction(Long userId, TransactionRequest request) {
         Wallet wallet = getOwnedWallet(userId, request.getWalletId());
-        Category category = getOwnedCategory(userId, request.getCategoryId());
+        Category category = resolveCategory(userId, request.getCategoryId(), request.getGoalId());
         Wallet destinationWallet =
                 validateLinks(
                         userId,
@@ -127,7 +127,7 @@ public class TransactionService {
                         : transaction.getWallet().getId(),
                 request.getCategoryId() != null
                         ? request.getCategoryId()
-                        : transaction.getCategory().getId(),
+                        : idOf(transaction.getCategory()),
                 request.getAmount() != null ? request.getAmount() : transaction.getAmount(),
                 request.getType() != null ? request.getType() : transaction.getType(),
                 request.isNoteSet() ? request.getNote() : transaction.getNote(),
@@ -174,7 +174,7 @@ public class TransactionService {
         }
 
         Wallet wallet = getOwnedWallet(userId, walletId);
-        Category category = getOwnedCategory(userId, categoryId);
+        Category category = resolveCategory(userId, categoryId, goalId);
         Wallet destinationWallet =
                 validateLinks(userId, walletId, type, debtId, goalId, destinationWalletId);
 
@@ -233,6 +233,19 @@ public class TransactionService {
                 .filter(c -> c.getUser().getId().equals(userId))
                 .orElseThrow(
                         () -> new ResourceNotFoundException("Category not found or access denied"));
+    }
+
+    private Category resolveCategory(Long userId, Long categoryId, Long goalId) {
+        if (goalId != null) {
+            if (categoryId != null) {
+                throw new BadRequestException("Goal funding must not have a category");
+            }
+            return null;
+        }
+        if (categoryId == null) {
+            throw new BadRequestException("Category is required");
+        }
+        return getOwnedCategory(userId, categoryId);
     }
 
     private Wallet validateLinks(
@@ -310,6 +323,10 @@ public class TransactionService {
 
     private Long idOf(Wallet wallet) {
         return wallet == null ? null : wallet.getId();
+    }
+
+    private Long idOf(Category category) {
+        return category == null ? null : category.getId();
     }
 
     public Page<Transaction> getTransactionsByUser(Long userId, Pageable pageable) {

@@ -18,8 +18,5 @@ public class GoalFundRequest {
     @NotNull
     private Long walletId;
 
-    @NotNull
-    private Long categoryId;
-
     private String note;
 }

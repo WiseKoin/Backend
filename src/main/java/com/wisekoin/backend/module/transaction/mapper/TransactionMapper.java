@@ -19,12 +19,7 @@ public class TransactionMapper {
                                         .id(transaction.getWallet().getId())
                                         .name(transaction.getWallet().getName())
                                         .build())
-                        .category(
-                                TransactionResponse.CategoryInfo.builder()
-                                        .id(transaction.getCategory().getId())
-                                        .name(transaction.getCategory().getName())
-                                        .icon(transaction.getCategory().getIcon())
-                                        .build());
+                        .category(toCategoryInfo(transaction));
 
         if (transaction.getDebt() != null) {
             builder.debt(
@@ -51,5 +46,16 @@ public class TransactionMapper {
         }
 
         return builder.build();
+    }
+
+    private TransactionResponse.CategoryInfo toCategoryInfo(Transaction transaction) {
+        if (transaction.getCategory() == null) {
+            return null;
+        }
+        return TransactionResponse.CategoryInfo.builder()
+                .id(transaction.getCategory().getId())
+                .name(transaction.getCategory().getName())
+                .icon(transaction.getCategory().getIcon())
+                .build();
     }
 }

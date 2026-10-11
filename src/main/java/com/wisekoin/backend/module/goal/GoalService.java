@@ -63,10 +63,10 @@ public class GoalService {
         if (goal.getStatus() != Goal.GoalStatus.IN_PROGRESS) {
             throw new BadRequestException("Goal is not in progress");
         }
+        validateContribution(goal, request.getAmount());
 
         TransactionRequest transaction = new TransactionRequest();
         transaction.setWalletId(request.getWalletId());
-        transaction.setCategoryId(request.getCategoryId());
         transaction.setAmount(request.getAmount());
         transaction.setType(Transaction.TransactionType.TRANSFER);
         transaction.setNote(
@@ -93,6 +93,9 @@ public class GoalService {
         BigDecimal currentAmount = goal.getCurrentAmount().add(amount);
         if (currentAmount.compareTo(BigDecimal.ZERO) < 0) {
             throw new BadRequestException("Goal fund reversal exceeds current amount");
+        }
+        if (currentAmount.compareTo(goal.getTargetAmount()) > 0) {
+            throw new BadRequestException("Contribution cannot exceed the remaining goal amount");
         }
         goal.setCurrentAmount(currentAmount);
         refreshStatus(goal);
@@ -150,5 +153,12 @@ public class GoalService {
                 goal.getCurrentAmount().compareTo(goal.getTargetAmount()) >= 0
                         ? Goal.GoalStatus.ACHIEVED
                         : Goal.GoalStatus.IN_PROGRESS);
+    }
+
+    private void validateContribution(Goal goal, BigDecimal amount) {
+        BigDecimal remainingAmount = goal.getTargetAmount().subtract(goal.getCurrentAmount());
+        if (amount.compareTo(remainingAmount) > 0) {
+            throw new BadRequestException("Contribution cannot exceed the remaining goal amount");
+        }
     }
 }
