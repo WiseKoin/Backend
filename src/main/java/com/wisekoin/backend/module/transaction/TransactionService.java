@@ -367,7 +367,13 @@ public class TransactionService {
 
             BigDecimal totalExpense =
                     txInMonth.stream()
-                            .filter(tx -> tx.getType() == Transaction.TransactionType.EXPENSE)
+                            .filter(
+                                    tx ->
+                                            tx.getType() == Transaction.TransactionType.EXPENSE
+                                                    || (tx.getType()
+                                                                    == Transaction.TransactionType
+                                                                            .TRANSFER
+                                                            && tx.getGoal() != null))
                             .map(Transaction::getAmount)
                             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
