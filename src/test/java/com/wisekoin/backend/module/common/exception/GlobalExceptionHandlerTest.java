@@ -31,4 +31,18 @@ class GlobalExceptionHandlerTest {
         assertEquals("INSUFFICIENT_BALANCE", response.getBody().get("code"));
         assertEquals("Insufficient balance in the wallet", response.getBody().get("error"));
     }
+
+    @Test
+    void unexpectedFailuresDoNotExposeInternalDetails() {
+        GlobalExceptionHandler handler = new GlobalExceptionHandler();
+
+        ResponseEntity<Map<String, String>> response =
+                handler.handleGeneric(
+                        new RuntimeException("SQL constraint users_password leaked-secret"));
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        assertEquals(
+                Map.of("error", "An unexpected error occurred. Please try again later."),
+                response.getBody());
+    }
 }

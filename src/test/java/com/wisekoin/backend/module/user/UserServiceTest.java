@@ -10,12 +10,14 @@ import static org.mockito.Mockito.when;
 
 import com.wisekoin.backend.module.auth.token.RefreshTokenService;
 import com.wisekoin.backend.module.category.CategoryRepository;
-import com.wisekoin.backend.module.common.exception.BadCredentialsException;
 import com.wisekoin.backend.module.common.exception.BadRequestException;
+import com.wisekoin.backend.module.common.exception.PasswordVerificationException;
 import com.wisekoin.backend.module.debt.DebtRepository;
 import com.wisekoin.backend.module.goal.GoalRepository;
 import com.wisekoin.backend.module.recurring.RecurringTransactionRepository;
 import com.wisekoin.backend.module.transaction.TransactionRepository;
+import com.wisekoin.backend.module.user.otp.OtpPurpose;
+import com.wisekoin.backend.module.user.otp.OtpService;
 import com.wisekoin.backend.module.wallet.WalletRepository;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +35,7 @@ class UserServiceTest {
     private GoalRepository goalRepository;
     private CategoryRepository categoryRepository;
     private WalletRepository walletRepository;
+    private OtpService otpService;
     private UserService userService;
 
     @BeforeEach
@@ -46,6 +49,7 @@ class UserServiceTest {
         goalRepository = mock(GoalRepository.class);
         categoryRepository = mock(CategoryRepository.class);
         walletRepository = mock(WalletRepository.class);
+        otpService = mock(OtpService.class);
         userService =
                 new UserService(
                         userRepository,
@@ -56,7 +60,8 @@ class UserServiceTest {
                         debtRepository,
                         goalRepository,
                         categoryRepository,
-                        walletRepository);
+                        walletRepository,
+                        otpService);
     }
 
     @Test
@@ -67,11 +72,15 @@ class UserServiceTest {
         when(passwordEncoder.matches("new-password", user.getPassword())).thenReturn(false);
         when(passwordEncoder.encode("new-password")).thenReturn("new-password-hash");
 
-        userService.changePassword(user.getId(), "current-password", "new-password");
+        userService.changePassword(
+                user.getId(), "current-password", "new-password", "verification-token");
 
         assertEquals("new-password-hash", user.getPassword());
         verify(userRepository).save(user);
         verify(refreshTokenService).revokeAllForUser(user.getId());
+        verify(otpService)
+                .consumeVerification(
+                        user.getId(), OtpPurpose.CHANGE_PASSWORD, "verification-token");
     }
 
     @Test
@@ -81,8 +90,13 @@ class UserServiceTest {
         when(passwordEncoder.matches("wrong-password", user.getPassword())).thenReturn(false);
 
         assertThrows(
-                BadCredentialsException.class,
-                () -> userService.changePassword(user.getId(), "wrong-password", "new-password"));
+                PasswordVerificationException.class,
+                () ->
+                        userService.changePassword(
+                                user.getId(),
+                                "wrong-password",
+                                "new-password",
+                                "verification-token"));
 
         verify(userRepository, never()).save(user);
         verify(refreshTokenService, never()).revokeAllForUser(user.getId());
@@ -115,11 +129,12 @@ class UserServiceTest {
         when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("current-password", user.getPassword())).thenReturn(true);
 
-        userService.deleteAccount(user.getId(), "current-password");
+        userService.deleteAccount(user.getId(), "current-password", "verification-token");
 
         InOrder deletionOrder =
                 inOrder(
                         refreshTokenService,
+                        otpService,
                         recurringTransactionRepository,
                         transactionRepository,
                         debtRepository,
@@ -127,7 +142,11 @@ class UserServiceTest {
                         categoryRepository,
                         walletRepository,
                         userRepository);
+        deletionOrder
+                .verify(otpService)
+                .consumeVerification(user.getId(), OtpPurpose.DELETE_ACCOUNT, "verification-token");
         deletionOrder.verify(refreshTokenService).revokeAllForUser(user.getId());
+        deletionOrder.verify(otpService).deleteAllForUser(user.getId());
         deletionOrder.verify(recurringTransactionRepository).deleteAllByUserId(user.getId());
         deletionOrder.verify(transactionRepository).deleteAllByUserId(user.getId());
         deletionOrder.verify(debtRepository).deleteAllByUserId(user.getId());

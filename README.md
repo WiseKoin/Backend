@@ -40,6 +40,8 @@ Spring Boot REST API for the WiseKoin financial management application.
 - `GET /api/users/me` — Get current user profile
 - `PUT /api/users/me` — Update current user profile
 - `PUT /api/users/me/password` — Change password and revoke all refresh sessions
+- `POST /api/users/me/otp/request` — Email a purpose-bound OTP (resend cooldown and hourly cap apply)
+- `POST /api/users/me/otp/verify` — Verify the OTP and issue a short-lived, one-time verification token
 - `PUT /api/users/me/base-currency` — Update the ISO 4217 base currency
 - `DELETE /api/users/me` — Permanently delete the user and all owned data
 
@@ -147,7 +149,25 @@ RATE_LIMIT_WINDOW_SECONDS=60
 RATE_LIMIT_AI_REQUESTS=10
 RATE_LIMIT_AUTH_REQUESTS=20
 RATE_LIMIT_API_REQUESTS=120
+MAIL_HOST=smtp.example.com
+MAIL_PORT=587
+MAIL_USERNAME=no-reply@example.com
+MAIL_PASSWORD=your_smtp_password
+MAIL_SMTP_AUTH=true
+MAIL_STARTTLS_ENABLE=true
+MAIL_STARTTLS_REQUIRED=true
+OTP_FROM_EMAIL=no-reply@example.com
+OTP_EXPIRATION_SECONDS=600
+OTP_VERIFICATION_EXPIRATION_SECONDS=600
+OTP_RESEND_COOLDOWN_SECONDS=60
+OTP_MAX_SENDS_PER_HOUR=3
+OTP_MAX_ATTEMPTS=5
 ```
+
+Password changes and account deletion require a purpose-bound OTP. Request a code with
+`CHANGE_PASSWORD` or `DELETE_ACCOUNT`, verify the six-digit code, then pass the returned
+one-time `verificationToken` together with the current password to the sensitive endpoint.
+Codes and verification tokens are hashed in the database and are never logged.
 
 > **Note:** The `.env` file is not committed to version control. Copy `.env.example` if available.
 

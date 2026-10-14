@@ -2,13 +2,15 @@ package com.wisekoin.backend.module.user;
 
 import com.wisekoin.backend.module.auth.token.RefreshTokenService;
 import com.wisekoin.backend.module.category.CategoryRepository;
-import com.wisekoin.backend.module.common.exception.BadCredentialsException;
 import com.wisekoin.backend.module.common.exception.BadRequestException;
+import com.wisekoin.backend.module.common.exception.PasswordVerificationException;
 import com.wisekoin.backend.module.common.exception.ResourceNotFoundException;
 import com.wisekoin.backend.module.debt.DebtRepository;
 import com.wisekoin.backend.module.goal.GoalRepository;
 import com.wisekoin.backend.module.recurring.RecurringTransactionRepository;
 import com.wisekoin.backend.module.transaction.TransactionRepository;
+import com.wisekoin.backend.module.user.otp.OtpPurpose;
+import com.wisekoin.backend.module.user.otp.OtpService;
 import com.wisekoin.backend.module.wallet.WalletRepository;
 import jakarta.transaction.Transactional;
 import java.util.Currency;
@@ -30,6 +32,7 @@ public class UserService {
     private final GoalRepository goalRepository;
     private final CategoryRepository categoryRepository;
     private final WalletRepository walletRepository;
+    private final OtpService otpService;
 
     public User getUserByEmail(String email) {
         return userRepository
@@ -68,12 +71,14 @@ public class UserService {
     }
 
     @Transactional
-    public void changePassword(Long userId, String currentPassword, String newPassword) {
+    public void changePassword(
+            Long userId, String currentPassword, String newPassword, String verificationToken) {
         User user = getUserById(userId);
         verifyPassword(user, currentPassword);
         if (passwordEncoder.matches(newPassword, user.getPassword())) {
             throw new BadRequestException("New password must be different from current password");
         }
+        otpService.consumeVerification(userId, OtpPurpose.CHANGE_PASSWORD, verificationToken);
 
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
@@ -95,11 +100,13 @@ public class UserService {
     }
 
     @Transactional
-    public void deleteAccount(Long userId, String currentPassword) {
+    public void deleteAccount(Long userId, String currentPassword, String verificationToken) {
         User user = getUserById(userId);
         verifyPassword(user, currentPassword);
+        otpService.consumeVerification(userId, OtpPurpose.DELETE_ACCOUNT, verificationToken);
 
         refreshTokenService.revokeAllForUser(userId);
+        otpService.deleteAllForUser(userId);
         recurringTransactionRepository.deleteAllByUserId(userId);
         transactionRepository.deleteAllByUserId(userId);
         debtRepository.deleteAllByUserId(userId);
@@ -117,7 +124,7 @@ public class UserService {
 
     private void verifyPassword(User user, String currentPassword) {
         if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
-            throw new BadCredentialsException("Invalid credentials");
+            throw new PasswordVerificationException("The current password is incorrect");
         }
     }
 }

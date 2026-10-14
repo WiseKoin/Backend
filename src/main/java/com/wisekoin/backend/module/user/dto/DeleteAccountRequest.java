@@ -9,4 +9,7 @@ import lombok.Setter;
 public class DeleteAccountRequest {
     @NotBlank
     private String currentPassword;
+
+    @NotBlank
+    private String verificationToken;
 }
