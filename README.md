@@ -249,7 +249,7 @@ The Docker publishing workflow requires repository secrets named
 
 ## Database
 
-The application uses `spring.jpa.hibernate.ddl-auto=update` for development. A Flyway migration (`V1__fix_categories_type_check.sql`) is included for schema fixes.
+Database schema changes are applied by Flyway from `src/main/resources/db/migration`, while Hibernate validates the resulting schema. Existing databases created before Flyway was enabled are baselined at version 7 so that pending migrations, including removal of the obsolete debt wallet column, run on startup.
 
 ## Testing
 

@@ -1,0 +1,2 @@
+ALTER TABLE debts
+    DROP COLUMN IF EXISTS wallet_id;

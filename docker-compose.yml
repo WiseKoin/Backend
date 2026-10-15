@@ -40,7 +40,7 @@ services:
       DB_URL: jdbc:postgresql://neon-local:5432/${NEON_DATABASE:-neondb}?sslmode=disable
       DB_USERNAME: neon
       DB_PASSWORD: npg
-      JPA_DDL_AUTO: update
+      JPA_DDL_AUTO: validate
       JPA_SHOW_SQL: ${JPA_SHOW_SQL:-true}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.development}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-900000}
