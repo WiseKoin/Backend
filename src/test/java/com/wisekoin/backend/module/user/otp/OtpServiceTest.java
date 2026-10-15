@@ -108,6 +108,19 @@ class OtpServiceTest {
     }
 
     @Test
+    void recoveryRequestForUnknownEmailReturnsGenericTimingWithoutSendingMail() {
+        when(userRepository.findByEmailIgnoreCase("missing@example.com"))
+                .thenReturn(Optional.empty());
+
+        OtpService.OtpRequestResult result =
+                service.requestByEmail("missing@example.com", OtpPurpose.PASSWORD_RECOVERY);
+
+        assertEquals(600L, result.expiresInSeconds());
+        assertEquals(60L, result.resendAfterSeconds());
+        org.mockito.Mockito.verifyNoInteractions(deliveryService);
+    }
+
+    @Test
     void verifyLocksChallengeAfterMaximumIncorrectAttempts() {
         OtpChallenge challenge = challenge();
         when(challengeRepository.findForUpdate(7L, OtpPurpose.CHANGE_PASSWORD))

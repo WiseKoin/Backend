@@ -16,6 +16,8 @@ import com.wisekoin.backend.module.category.CategoryService;
 import com.wisekoin.backend.module.common.exception.BadCredentialsException;
 import com.wisekoin.backend.module.user.User;
 import com.wisekoin.backend.module.user.UserService;
+import com.wisekoin.backend.module.user.otp.OtpPurpose;
+import com.wisekoin.backend.module.user.otp.OtpService;
 import com.wisekoin.backend.module.wallet.WalletService;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +30,7 @@ class AuthServiceTest {
     private JwtTokenProvider jwtTokenProvider;
     private RefreshTokenService refreshTokenService;
     private AuthService authService;
+    private OtpService otpService;
 
     @BeforeEach
     void setUp() {
@@ -35,6 +38,7 @@ class AuthServiceTest {
         passwordEncoder = mock(PasswordEncoder.class);
         jwtTokenProvider = mock(JwtTokenProvider.class);
         refreshTokenService = mock(RefreshTokenService.class);
+        otpService = mock(OtpService.class);
         authService =
                 new AuthService(
                         userService,
@@ -42,7 +46,8 @@ class AuthServiceTest {
                         jwtTokenProvider,
                         refreshTokenService,
                         mock(WalletService.class),
-                        mock(CategoryService.class));
+                        mock(CategoryService.class),
+                        otpService);
     }
 
     @Test
@@ -104,6 +109,18 @@ class AuthServiceTest {
 
         assertEquals("new-access-token", response.getAccessToken());
         assertEquals("new-refresh-token", response.getRefreshToken());
+    }
+
+    @Test
+    void recoveryRequestUsesDedicatedOtpPurposeWithoutReturningAccountDetails() {
+        when(otpService.requestByEmail("user@example.com", OtpPurpose.PASSWORD_RECOVERY))
+                .thenReturn(new OtpService.OtpRequestResult(600, 60, "u***@example.com"));
+
+        var response = authService.requestPasswordRecovery("user@example.com");
+
+        assertEquals(600, response.expiresInSeconds());
+        assertEquals(60, response.resendAfterSeconds());
+        verify(otpService).requestByEmail("user@example.com", OtpPurpose.PASSWORD_RECOVERY);
     }
 
     private LoginRequest loginRequest() {

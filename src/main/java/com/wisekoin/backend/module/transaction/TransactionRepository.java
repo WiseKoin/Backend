@@ -36,6 +36,9 @@ public interface TransactionRepository
 
     boolean existsByGoalId(Long goalId);
 
+    @EntityGraph(attributePaths = {"wallet"})
+    List<Transaction> findAllByGoalId(Long goalId);
+
     @Modifying
     @Query("delete from Transaction transaction where transaction.user.id = :userId")
     void deleteAllByUserId(@Param("userId") Long userId);

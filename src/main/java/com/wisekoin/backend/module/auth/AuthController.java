@@ -2,8 +2,14 @@ package com.wisekoin.backend.module.auth;
 
 import com.wisekoin.backend.module.auth.dto.AuthResponse;
 import com.wisekoin.backend.module.auth.dto.LoginRequest;
+import com.wisekoin.backend.module.auth.dto.PasswordRecoveryRequest;
+import com.wisekoin.backend.module.auth.dto.PasswordRecoveryRequestResponse;
+import com.wisekoin.backend.module.auth.dto.PasswordRecoveryResetRequest;
+import com.wisekoin.backend.module.auth.dto.PasswordRecoveryVerifyRequest;
 import com.wisekoin.backend.module.auth.dto.RefreshTokenRequest;
 import com.wisekoin.backend.module.auth.dto.RegisterRequest;
+import com.wisekoin.backend.module.user.dto.OtpVerifyResponse;
+import com.wisekoin.backend.module.user.otp.OtpService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,6 +47,29 @@ public class AuthController {
     public ResponseEntity<Void> logout(
             @Valid @RequestBody RefreshTokenRequest refreshTokenRequest) {
         authService.logout(refreshTokenRequest);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/password-recovery/request")
+    public ResponseEntity<PasswordRecoveryRequestResponse> requestPasswordRecovery(
+            @Valid @RequestBody PasswordRecoveryRequest request) {
+        return ResponseEntity.ok(authService.requestPasswordRecovery(request.getEmail()));
+    }
+
+    @PostMapping("/password-recovery/verify")
+    public ResponseEntity<OtpVerifyResponse> verifyPasswordRecovery(
+            @Valid @RequestBody PasswordRecoveryVerifyRequest request) {
+        OtpService.OtpVerificationResult result =
+                authService.verifyPasswordRecovery(request.getEmail(), request.getCode());
+        return ResponseEntity.ok(
+                new OtpVerifyResponse(result.verificationToken(), result.expiresInSeconds()));
+    }
+
+    @PostMapping("/password-recovery/reset")
+    public ResponseEntity<Void> resetPassword(
+            @Valid @RequestBody PasswordRecoveryResetRequest request) {
+        authService.resetPassword(
+                request.getEmail(), request.getNewPassword(), request.getVerificationToken());
         return ResponseEntity.noContent().build();
     }
 }

@@ -2,6 +2,7 @@ package com.wisekoin.backend.module.auth;
 
 import com.wisekoin.backend.module.auth.dto.AuthResponse;
 import com.wisekoin.backend.module.auth.dto.LoginRequest;
+import com.wisekoin.backend.module.auth.dto.PasswordRecoveryRequestResponse;
 import com.wisekoin.backend.module.auth.dto.RefreshTokenRequest;
 import com.wisekoin.backend.module.auth.dto.RegisterRequest;
 import com.wisekoin.backend.module.auth.jwt.JwtTokenProvider;
@@ -12,6 +13,8 @@ import com.wisekoin.backend.module.common.exception.BadCredentialsException;
 import com.wisekoin.backend.module.common.exception.BadRequestException;
 import com.wisekoin.backend.module.user.User;
 import com.wisekoin.backend.module.user.UserService;
+import com.wisekoin.backend.module.user.otp.OtpPurpose;
+import com.wisekoin.backend.module.user.otp.OtpService;
 import com.wisekoin.backend.module.wallet.WalletService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +30,7 @@ public class AuthService {
     private final RefreshTokenService refreshTokenService;
     private final WalletService walletService;
     private final CategoryService categoryService;
+    private final OtpService otpService;
 
     @Transactional
     public AuthResponse register(RegisterRequest registerRequest) {
@@ -70,6 +74,21 @@ public class AuthService {
     @Transactional
     public void logout(RefreshTokenRequest request) {
         refreshTokenService.revoke(request.getRefreshToken());
+    }
+
+    public PasswordRecoveryRequestResponse requestPasswordRecovery(String email) {
+        OtpService.OtpRequestResult result =
+                otpService.requestByEmail(email, OtpPurpose.PASSWORD_RECOVERY);
+        return new PasswordRecoveryRequestResponse(
+                result.expiresInSeconds(), result.resendAfterSeconds());
+    }
+
+    public OtpService.OtpVerificationResult verifyPasswordRecovery(String email, String code) {
+        return otpService.verifyByEmail(email, OtpPurpose.PASSWORD_RECOVERY, code);
+    }
+
+    public void resetPassword(String email, String newPassword, String verificationToken) {
+        userService.resetPassword(email, newPassword, verificationToken);
     }
 
     private AuthResponse createSession(User user, String refreshToken) {

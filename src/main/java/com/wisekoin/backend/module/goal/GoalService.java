@@ -11,6 +11,7 @@ import com.wisekoin.backend.module.transaction.TransactionService;
 import com.wisekoin.backend.module.transaction.dto.TransactionRequest;
 import com.wisekoin.backend.module.user.User;
 import com.wisekoin.backend.module.user.UserRepository;
+import com.wisekoin.backend.module.wallet.WalletService;
 import jakarta.transaction.Transactional;
 import java.math.BigDecimal;
 import java.util.List;
@@ -26,6 +27,7 @@ public class GoalService {
     private final UserRepository userRepository;
     private final TransactionRepository transactionRepository;
     private final TransactionService transactionService;
+    private final WalletService walletService;
 
     public Goal createGoal(Long userId, GoalRequest request) {
         Goal goal = new Goal();
@@ -125,9 +127,12 @@ public class GoalService {
     @Transactional
     public void deleteGoal(Long userId, Long goalId) {
         Goal goal = getGoalById(userId, goalId);
-        if (transactionRepository.existsByGoalId(goalId)) {
-            throw new BadRequestException("Cannot delete a goal that is used by transactions");
+        List<Transaction> fundingTransactions = transactionRepository.findAllByGoalId(goalId);
+        for (Transaction transaction : fundingTransactions) {
+            walletService.updateBalance(transaction.getWallet().getId(), transaction.getAmount());
         }
+        transactionRepository.deleteAll(fundingTransactions);
+        transactionRepository.flush();
         goalRepository.delete(goal);
     }
 

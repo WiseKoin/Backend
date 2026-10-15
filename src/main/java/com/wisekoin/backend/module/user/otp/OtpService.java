@@ -103,6 +103,31 @@ public class OtpService {
                 expirationSeconds, resendCooldownSeconds, maskEmail(user.getEmail()));
     }
 
+    @Transactional
+    public OtpRequestResult requestByEmail(String email, OtpPurpose purpose) {
+        return userRepository
+                .findByEmailIgnoreCase(email.trim())
+                .map(user -> request(user.getId(), purpose))
+                .orElseGet(
+                        () ->
+                                new OtpRequestResult(
+                                        expirationSeconds,
+                                        resendCooldownSeconds,
+                                        maskEmail(email.trim())));
+    }
+
+    @Transactional(dontRollbackOn = InvalidOtpException.class)
+    public OtpVerificationResult verifyByEmail(String email, OtpPurpose purpose, String code) {
+        User user =
+                userRepository
+                        .findByEmailIgnoreCase(email.trim())
+                        .orElseThrow(
+                                () ->
+                                        new InvalidOtpException(
+                                                "The verification code is invalid or expired."));
+        return verify(user.getId(), purpose, code);
+    }
+
     @Transactional(dontRollbackOn = InvalidOtpException.class)
     public OtpVerificationResult verify(Long userId, OtpPurpose purpose, String code) {
         OtpChallenge challenge = getChallenge(userId, purpose);

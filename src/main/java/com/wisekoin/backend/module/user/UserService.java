@@ -86,6 +86,25 @@ public class UserService {
     }
 
     @Transactional
+    public void resetPassword(String email, String newPassword, String verificationToken) {
+        User user =
+                userRepository
+                        .findByEmailIgnoreCase(email.trim())
+                        .orElseThrow(
+                                () ->
+                                        new BadRequestException(
+                                                "Password recovery verification is invalid or expired"));
+        if (passwordEncoder.matches(newPassword, user.getPassword())) {
+            throw new BadRequestException("New password must be different from current password");
+        }
+        otpService.consumeVerification(
+                user.getId(), OtpPurpose.PASSWORD_RECOVERY, verificationToken);
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+        refreshTokenService.revokeAllForUser(user.getId());
+    }
+
+    @Transactional
     public User updateBaseCurrency(Long userId, String baseCurrency) {
         User user = getUserById(userId);
         String normalizedCurrency = baseCurrency.trim().toUpperCase(Locale.ROOT);

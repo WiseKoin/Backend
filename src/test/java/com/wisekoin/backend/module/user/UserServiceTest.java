@@ -103,6 +103,22 @@ class UserServiceTest {
     }
 
     @Test
+    void resetPasswordConsumesRecoveryVerificationAndRevokesSessions() {
+        User user = user();
+        when(userRepository.findByEmailIgnoreCase(user.getEmail())).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("New-password1!", user.getPassword())).thenReturn(false);
+        when(passwordEncoder.encode("New-password1!")).thenReturn("new-password-hash");
+
+        userService.resetPassword(user.getEmail(), "New-password1!", "verification-token");
+
+        assertEquals("new-password-hash", user.getPassword());
+        verify(otpService)
+                .consumeVerification(
+                        user.getId(), OtpPurpose.PASSWORD_RECOVERY, "verification-token");
+        verify(refreshTokenService).revokeAllForUser(user.getId());
+    }
+
+    @Test
     void updateBaseCurrencyNormalizesValidIsoCode() {
         User user = user();
         when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
