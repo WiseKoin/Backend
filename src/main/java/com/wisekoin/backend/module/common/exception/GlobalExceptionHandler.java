@@ -1,5 +1,6 @@
 package com.wisekoin.backend.module.common.exception;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
@@ -47,6 +48,22 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(body);
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException e) {
+        String message = e.getMessage() == null ? "The request is invalid." : e.getMessage();
+        return ResponseEntity.badRequest().body(Map.of("error", message));
+    }
+
+    @ExceptionHandler(IOException.class)
+    public ResponseEntity<Map<String, String>> handleMediaProcessing(IOException e) {
+        log.error("Uploaded media processing failed: {}", e.getClass().getSimpleName());
+        return ResponseEntity.internalServerError()
+                .body(
+                        Map.of(
+                                "code", "MEDIA_PROCESSING_FAILED",
+                                "error", "The uploaded media could not be processed."));
+    }
+
     @ExceptionHandler(InsufficientBalanceException.class)
     public ResponseEntity<Map<String, String>> handleInsufficientBalance(
             InsufficientBalanceException e) {
@@ -54,6 +71,19 @@ public class GlobalExceptionHandler {
         body.put("code", "INSUFFICIENT_BALANCE");
         body.put("error", e.getMessage());
         return ResponseEntity.badRequest().body(body);
+    }
+
+    @ExceptionHandler(DuplicateAiExtractionException.class)
+    public ResponseEntity<Map<String, String>> handleDuplicateAiExtraction(
+            DuplicateAiExtractionException e) {
+        Map<String, String> body = new HashMap<>();
+        body.put("code", "AI_EXTRACTION_DUPLICATE");
+        body.put("error", e.getMessage());
+        body.put("request_id", e.getRequestId().toString());
+        if (e.getExtractionId() != null) {
+            body.put("extraction_id", e.getExtractionId().toString());
+        }
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -79,6 +109,13 @@ public class GlobalExceptionHandler {
             ServiceUnavailableException e) {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(Map.of("error", e.getMessage()));
+    }
+
+    @ExceptionHandler(AiProviderUnavailableException.class)
+    public ResponseEntity<Map<String, String>> handleAiProviderUnavailable(
+            AiProviderUnavailableException e) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(Map.of("code", "AI_PROVIDER_UNAVAILABLE", "error", e.getMessage()));
     }
 
     @ExceptionHandler(Exception.class)

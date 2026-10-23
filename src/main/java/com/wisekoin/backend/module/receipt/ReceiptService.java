@@ -11,6 +11,9 @@ import com.wisekoin.backend.module.ai.dto.AiCategoryCandidate;
 import com.wisekoin.backend.module.ai.dto.AiConfidenceResponse;
 import com.wisekoin.backend.module.ai.dto.AiDuplicateCandidate;
 import com.wisekoin.backend.module.ai.dto.AiFieldAmbiguity;
+import com.wisekoin.backend.module.ai.ingestion.AiIngestionRequestService;
+import com.wisekoin.backend.module.ai.media.AiMediaIngestionService;
+import com.wisekoin.backend.module.ai.media.AiMediaPayload;
 import com.wisekoin.backend.module.ai.prompt.AiPromptService;
 import com.wisekoin.backend.module.ai.prompt.VersionedPrompt;
 import com.wisekoin.backend.module.ai.provider.AiExtractionClient;
@@ -28,13 +31,13 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -55,6 +58,8 @@ public class ReceiptService {
     private final AiRequestContextResolver contextResolver;
     private final AiAdaptationService adaptationService;
     private final AiConfidenceScorer confidenceScorer;
+    private final AiMediaIngestionService mediaIngestionService;
+    private final AiIngestionRequestService ingestionRequestService;
     private final JsonMapper jsonMapper;
     private final CategoryService categoryService;
     private final UserService userService;
@@ -62,13 +67,35 @@ public class ReceiptService {
     private final Clock clock;
 
     public ReceiptResponse extractReceipt(MultipartFile file, Long userId) throws IOException {
-        return extractReceipt(file, userId, null, null);
+        return extractReceipt(file, userId, null, null, null);
     }
 
     public ReceiptResponse extractReceipt(
             MultipartFile file, Long userId, String locale, String timeZone) throws IOException {
-        String mimeType = validateAndNormalizeMimeType(file);
-        String base64Image = encodeImageToBase64(file);
+        return extractReceipt(file, userId, locale, timeZone, null);
+    }
+
+    public ReceiptResponse extractReceipt(
+            MultipartFile file, Long userId, String locale, String timeZone, String idempotencyKey)
+            throws IOException {
+        AiMediaPayload media = mediaIngestionService.ingestReceipt(file);
+        var attempt =
+                ingestionRequestService.begin(
+                        userId, "RECEIPT", idempotencyKey, media.fingerprint());
+        try {
+            ReceiptResponse response =
+                    extractReceipt(media, userId, locale, timeZone, attempt.requestId());
+            ingestionRequestService.complete(attempt.requestId(), response.extractionId());
+            return response;
+        } catch (IOException | RuntimeException exception) {
+            ingestionRequestService.fail(attempt.requestId());
+            throw exception;
+        }
+    }
+
+    private ReceiptResponse extractReceipt(
+            AiMediaPayload media, Long userId, String locale, String timeZone, UUID requestId)
+            throws IOException {
         List<Category> expenseCategories = getExpenseCategories(userId);
         String currency = getBaseCurrency(userId);
         AiRequestContext context = contextResolver.resolve(locale, timeZone);
@@ -87,8 +114,8 @@ public class ReceiptService {
                 extractionClient.extract(
                         new AiExtractionRequest(
                                 prompt.content(),
-                                mimeType,
-                                base64Image,
+                                media.mimeType(),
+                                media.base64Content(),
                                 buildResponseSchema(expenseCategories),
                                 0.0));
 
@@ -99,7 +126,8 @@ public class ReceiptService {
                 currency,
                 context,
                 prompt.version(),
-                result);
+                result,
+                requestId);
     }
 
     private List<Category> getExpenseCategories(Long userId) {
@@ -112,32 +140,6 @@ public class ReceiptService {
             return "VND";
         }
         return user.getBaseCurrency().trim().toUpperCase(Locale.ROOT);
-    }
-
-    String validateAndNormalizeMimeType(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("Uploaded file cannot be empty.");
-        }
-
-        String rawMimeType = file.getContentType();
-
-        if ("image/jpeg".equalsIgnoreCase(rawMimeType)
-                || "image/jpg".equalsIgnoreCase(rawMimeType)) {
-            return "image/jpeg";
-        } else if ("image/png".equalsIgnoreCase(rawMimeType)) {
-            return "image/png";
-        } else if ("image/webp".equalsIgnoreCase(rawMimeType)) {
-            return "image/webp";
-        }
-
-        throw new IllegalArgumentException(
-                "Do not support file format: "
-                        + rawMimeType
-                        + ". Only accept jpeg, png, and webp.");
-    }
-
-    private String encodeImageToBase64(MultipartFile file) throws IOException {
-        return Base64.getEncoder().encodeToString(file.getBytes());
     }
 
     Map<String, Object> buildResponseSchema(List<Category> categories) {
@@ -258,6 +260,7 @@ public class ReceiptService {
                 baseCurrency,
                 null,
                 null,
+                null,
                 null);
     }
 
@@ -268,7 +271,8 @@ public class ReceiptService {
             String baseCurrency,
             AiRequestContext context,
             String promptVersion,
-            AiExtractionResult extractionResult)
+            AiExtractionResult extractionResult,
+            UUID requestId)
             throws IOException {
         ReceiptExtraction extraction = jsonMapper.readValue(extractedJson, ReceiptExtraction.class);
         validateAmount(extraction.amount());
@@ -359,7 +363,8 @@ public class ReceiptService {
                 context != null ? context.localeTag() : null,
                 context != null ? context.timeZone() : null,
                 ruleApplied,
-                confidence);
+                confidence,
+                requestId);
     }
 
     private String formatCategories(List<Category> categories) {

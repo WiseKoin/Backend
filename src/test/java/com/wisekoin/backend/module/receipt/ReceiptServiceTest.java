@@ -16,6 +16,8 @@ import com.wisekoin.backend.module.ai.adaptive.AiAdaptationService;
 import com.wisekoin.backend.module.ai.adaptive.AiConfidenceScorer;
 import com.wisekoin.backend.module.ai.context.AiRequestContextResolver;
 import com.wisekoin.backend.module.ai.dto.AiDuplicateCandidate;
+import com.wisekoin.backend.module.ai.ingestion.AiIngestionRequestService;
+import com.wisekoin.backend.module.ai.media.AiMediaIngestionService;
 import com.wisekoin.backend.module.ai.prompt.AiPromptService;
 import com.wisekoin.backend.module.ai.provider.AiExtractionClient;
 import com.wisekoin.backend.module.category.Category;
@@ -33,7 +35,6 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.mock.web.MockMultipartFile;
 import tools.jackson.databind.json.JsonMapper;
 
 class ReceiptServiceTest {
@@ -57,52 +58,13 @@ class ReceiptServiceTest {
                         mock(AiRequestContextResolver.class),
                         mock(AiAdaptationService.class),
                         mock(AiConfidenceScorer.class),
+                        mock(AiMediaIngestionService.class),
+                        mock(AiIngestionRequestService.class),
                         new JsonMapper(),
                         mock(CategoryService.class),
                         mock(UserService.class),
                         duplicateDetector,
                         Clock.fixed(Instant.parse("2026-10-23T10:00:00Z"), ZoneOffset.UTC));
-    }
-
-    @Test
-    @DisplayName("Should normalize image/jpg to image/jpeg")
-    void validateMimeType_WhenJpg_ShouldReturnJpeg() {
-        MockMultipartFile file =
-                new MockMultipartFile("file", "bill.jpg", "image/jpg", "fake-bytes".getBytes());
-
-        assertEquals("image/jpeg", receiptService.validateAndNormalizeMimeType(file));
-    }
-
-    @Test
-    @DisplayName("Should accept PNG and WebP images")
-    void validateMimeType_WhenPngOrWebp_ShouldReturnExactType() {
-        MockMultipartFile pngFile =
-                new MockMultipartFile("file", "bill.png", "image/png", "fake-bytes".getBytes());
-        MockMultipartFile webpFile =
-                new MockMultipartFile("file", "bill.webp", "image/webp", "fake-bytes".getBytes());
-
-        assertEquals("image/png", receiptService.validateAndNormalizeMimeType(pngFile));
-        assertEquals("image/webp", receiptService.validateAndNormalizeMimeType(webpFile));
-    }
-
-    @Test
-    @DisplayName("Should reject empty, null, and unsupported image files")
-    void validateMimeType_WhenInvalid_ShouldThrowException() {
-        MockMultipartFile emptyFile =
-                new MockMultipartFile("file", "empty.jpg", "image/jpeg", new byte[0]);
-        MockMultipartFile pdfFile =
-                new MockMultipartFile(
-                        "file", "document.pdf", "application/pdf", "fake-bytes".getBytes());
-
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> receiptService.validateAndNormalizeMimeType(emptyFile));
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> receiptService.validateAndNormalizeMimeType(null));
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> receiptService.validateAndNormalizeMimeType(pdfFile));
     }
 
     @Test

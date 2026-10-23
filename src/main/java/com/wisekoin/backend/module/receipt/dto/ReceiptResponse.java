@@ -33,7 +33,8 @@ public record ReceiptResponse(
         String locale,
         @JsonProperty("time_zone") String timeZone,
         @JsonProperty("rule_applied") boolean ruleApplied,
-        AiConfidenceResponse confidence) {
+        AiConfidenceResponse confidence,
+        @JsonProperty("request_id") UUID requestId) {
     public ReceiptResponse(
             String storeName,
             Long categoryId,
@@ -73,6 +74,7 @@ public record ReceiptResponse(
                 null,
                 null,
                 false,
+                null,
                 null);
     }
 }

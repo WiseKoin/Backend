@@ -22,7 +22,8 @@ public record VoiceResponse(
         @JsonProperty("extraction_id") UUID extractionId,
         String counterparty,
         @JsonProperty("source_wallet_id") Long sourceWalletId,
-        @JsonProperty("destination_wallet_id") Long destinationWalletId) {
+        @JsonProperty("destination_wallet_id") Long destinationWalletId,
+        @JsonProperty("request_id") UUID requestId) {
     public VoiceResponse(
             BigDecimal amount,
             String currency,
@@ -51,6 +52,7 @@ public record VoiceResponse(
                 transactions,
                 null,
                 "",
+                null,
                 null,
                 null);
     }

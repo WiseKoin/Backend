@@ -1,6 +1,6 @@
 package com.wisekoin.backend.module.ai.provider;
 
-import java.util.HashMap;
+import com.wisekoin.backend.module.common.exception.AiProviderUnavailableException;
 import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
@@ -8,6 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -15,6 +16,7 @@ import tools.jackson.databind.json.JsonMapper;
 public class GeminiAiExtractionClient implements AiExtractionClient {
     private final RestClient restClient;
     private final JsonMapper jsonMapper;
+    private final AiProviderResilience resilience;
     private final String apiKey;
     private final String primaryUrl;
     private final String primaryModel;
@@ -24,6 +26,7 @@ public class GeminiAiExtractionClient implements AiExtractionClient {
     public GeminiAiExtractionClient(
             RestClient restClient,
             JsonMapper jsonMapper,
+            AiProviderResilience resilience,
             @Value("${gemini.api.vision.language.key}") String apiKey,
             @Value("${gemini.api.vision.language.url}") String primaryUrl,
             @Value("${gemini.api.vision.language.model:gemini-3.1-flash-lite}") String primaryModel,
@@ -31,6 +34,7 @@ public class GeminiAiExtractionClient implements AiExtractionClient {
             @Value("${gemini.api.vision.language.fallback-model:}") String fallbackModel) {
         this.restClient = restClient;
         this.jsonMapper = jsonMapper;
+        this.resilience = resilience;
         this.apiKey = apiKey;
         this.primaryUrl = primaryUrl;
         this.primaryModel = primaryModel;
@@ -40,22 +44,62 @@ public class GeminiAiExtractionClient implements AiExtractionClient {
 
     @Override
     public AiExtractionResult extract(AiExtractionRequest request) {
+        RuntimeException primaryFailure;
         try {
-            return call(request, primaryUrl, primaryModel);
-        } catch (RestClientException | IllegalStateException primaryFailure) {
-            if (fallbackUrl == null || fallbackUrl.isBlank()) {
-                throw primaryFailure;
-            }
-            String resolvedFallbackModel =
-                    fallbackModel == null || fallbackModel.isBlank()
-                            ? "configured-fallback"
-                            : fallbackModel;
-            return call(request, fallbackUrl, resolvedFallbackModel);
+            return resilience.execute(
+                    providerKey("primary", primaryUrl),
+                    () -> call(request, primaryUrl, primaryModel));
+        } catch (RestClientException
+                | IllegalStateException
+                | AiProviderResilienceException failure) {
+            primaryFailure = failure;
+        }
+
+        if (fallbackUrl == null || fallbackUrl.isBlank()) {
+            throw unavailable(primaryFailure);
+        }
+
+        String resolvedFallbackModel =
+                fallbackModel == null || fallbackModel.isBlank()
+                        ? "configured-fallback"
+                        : fallbackModel;
+        try {
+            return resilience.execute(
+                    providerKey("fallback", fallbackUrl),
+                    () -> call(request, fallbackUrl, resolvedFallbackModel));
+        } catch (RestClientException
+                | IllegalStateException
+                | AiProviderResilienceException fallbackFailure) {
+            throw unavailable(fallbackFailure);
         }
     }
 
+    private String providerKey(String role, String url) {
+        return "gemini:" + role + ":" + url;
+    }
+
+    private AiProviderUnavailableException unavailable(RuntimeException cause) {
+        return new AiProviderUnavailableException(
+                "AI extraction is temporarily unavailable. Please try again later.",
+                sanitizedCause(cause));
+    }
+
+    private RuntimeException sanitizedCause(RuntimeException cause) {
+        if (cause instanceof RestClientResponseException responseException) {
+            return new RuntimeException(
+                    "AI provider returned HTTP " + responseException.getStatusCode().value() + ".");
+        }
+        if (cause instanceof AiCircuitOpenException) {
+            return new RuntimeException("AI provider circuit is open.");
+        }
+        if (cause instanceof IllegalStateException) {
+            return new RuntimeException("AI provider returned an invalid structured response.");
+        }
+        return new RuntimeException("AI provider request failed.");
+    }
+
     private AiExtractionResult call(AiExtractionRequest request, String url, String modelVersion) {
-        Map<String, Object> requestBody = new HashMap<>();
+        Map<String, Object> requestBody = new RedactedAiRequestBody();
         requestBody.put(
                 "contents",
                 List.of(
@@ -71,7 +115,7 @@ public class GeminiAiExtractionClient implements AiExtractionClient {
                                                         "data",
                                                         request.mediaBase64()))))));
 
-        Map<String, Object> generationConfig = new HashMap<>();
+        Map<String, Object> generationConfig = new RedactedAiRequestBody();
         generationConfig.put("temperature", request.temperature());
         generationConfig.put("response_mime_type", "application/json");
         generationConfig.put("response_schema", request.responseSchema());

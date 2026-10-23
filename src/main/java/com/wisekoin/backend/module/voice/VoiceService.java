@@ -11,6 +11,9 @@ import com.wisekoin.backend.module.ai.dto.AiCategoryCandidate;
 import com.wisekoin.backend.module.ai.dto.AiConfidenceResponse;
 import com.wisekoin.backend.module.ai.dto.AiDuplicateCandidate;
 import com.wisekoin.backend.module.ai.dto.AiFieldAmbiguity;
+import com.wisekoin.backend.module.ai.ingestion.AiIngestionRequestService;
+import com.wisekoin.backend.module.ai.media.AiMediaIngestionService;
+import com.wisekoin.backend.module.ai.media.AiMediaPayload;
 import com.wisekoin.backend.module.ai.prompt.AiPromptService;
 import com.wisekoin.backend.module.ai.prompt.VersionedPrompt;
 import com.wisekoin.backend.module.ai.provider.AiExtractionClient;
@@ -31,12 +34,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -56,6 +59,8 @@ public class VoiceService {
     private final AiRequestContextResolver contextResolver;
     private final AiAdaptationService adaptationService;
     private final AiConfidenceScorer confidenceScorer;
+    private final AiMediaIngestionService mediaIngestionService;
+    private final AiIngestionRequestService ingestionRequestService;
     private final JsonMapper jsonMapper;
     private final CategoryService categoryService;
     private final UserService userService;
@@ -64,13 +69,34 @@ public class VoiceService {
     private final Clock clock;
 
     public VoiceResponse extractVoice(MultipartFile file, Long userId) throws IOException {
-        return extractVoice(file, userId, null, null);
+        return extractVoice(file, userId, null, null, null);
     }
 
     public VoiceResponse extractVoice(
             MultipartFile file, Long userId, String locale, String timeZone) throws IOException {
-        String mimeType = validateAndNormalizeMimeType(file);
-        String base64Audio = encodeAudioToBase64(file);
+        return extractVoice(file, userId, locale, timeZone, null);
+    }
+
+    public VoiceResponse extractVoice(
+            MultipartFile file, Long userId, String locale, String timeZone, String idempotencyKey)
+            throws IOException {
+        AiMediaPayload media = mediaIngestionService.ingestVoice(file);
+        var attempt =
+                ingestionRequestService.begin(userId, "VOICE", idempotencyKey, media.fingerprint());
+        try {
+            VoiceResponse response =
+                    extractVoice(media, userId, locale, timeZone, attempt.requestId());
+            ingestionRequestService.complete(attempt.requestId(), response.extractionId());
+            return response;
+        } catch (IOException | RuntimeException exception) {
+            ingestionRequestService.fail(attempt.requestId());
+            throw exception;
+        }
+    }
+
+    private VoiceResponse extractVoice(
+            AiMediaPayload media, Long userId, String locale, String timeZone, UUID requestId)
+            throws IOException {
         String currency = getBaseCurrency(userId);
         List<Category> categories = getTransactionCategories(userId);
         List<Wallet> wallets = walletRepository.findAllByUserId(userId);
@@ -97,8 +123,8 @@ public class VoiceService {
                 extractionClient.extract(
                         new AiExtractionRequest(
                                 prompt.content(),
-                                mimeType,
-                                base64Audio,
+                                media.mimeType(),
+                                media.base64Content(),
                                 buildResponseSchema(categories, wallets, currency),
                                 0.0));
 
@@ -107,7 +133,7 @@ public class VoiceService {
                 categories,
                 currency,
                 userId,
-                new AdaptiveVoiceContext(context, prompt.version(), result, wallets));
+                new AdaptiveVoiceContext(context, prompt.version(), result, wallets, requestId));
     }
 
     List<Category> getTransactionCategories(Long userId) {
@@ -123,45 +149,6 @@ public class VoiceService {
             return "VND";
         }
         return user.getBaseCurrency().trim().toUpperCase(Locale.ROOT);
-    }
-
-    public String validateAndNormalizeMimeType(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("Uploaded file cannot be empty.");
-        }
-
-        String rawMimeType = file.getContentType();
-        String filename =
-                file.getOriginalFilename() != null ? file.getOriginalFilename().toLowerCase() : "";
-
-        if ("audio/mp4".equalsIgnoreCase(rawMimeType)
-                || "audio/m4a".equalsIgnoreCase(rawMimeType)
-                || "audio/x-m4a".equalsIgnoreCase(rawMimeType)
-                || filename.endsWith(".m4a")
-                || filename.endsWith(".mp4")) {
-            return "audio/mp4";
-        } else if ("audio/mpeg".equalsIgnoreCase(rawMimeType)
-                || "audio/mp3".equalsIgnoreCase(rawMimeType)
-                || filename.endsWith(".mp3")) {
-            return "audio/mp3";
-        } else if ("audio/wav".equalsIgnoreCase(rawMimeType)
-                || "audio/x-wav".equalsIgnoreCase(rawMimeType)
-                || filename.endsWith(".wav")) {
-            return "audio/wav";
-        } else if ("audio/aac".equalsIgnoreCase(rawMimeType) || filename.endsWith(".aac")) {
-            return "audio/aac";
-        } else if ("audio/ogg".equalsIgnoreCase(rawMimeType) || filename.endsWith(".ogg")) {
-            return "audio/ogg";
-        }
-
-        throw new IllegalArgumentException(
-                "Do not support audio format: "
-                        + rawMimeType
-                        + ". Only accept m4a, mp3, wav, aac, and ogg.");
-    }
-
-    private String encodeAudioToBase64(MultipartFile file) throws IOException {
-        return Base64.getEncoder().encodeToString(file.getBytes());
     }
 
     Map<String, Object> buildResponseSchema(
@@ -395,7 +382,8 @@ public class VoiceService {
                 first.extractionId(),
                 first.counterparty(),
                 first.sourceWalletId(),
-                first.destinationWalletId());
+                first.destinationWalletId(),
+                adaptiveContext != null ? adaptiveContext.requestId() : null);
     }
 
     private VoiceBatchExtraction readBatchExtraction(JsonNode extractionNode) throws IOException {
@@ -724,5 +712,6 @@ public class VoiceService {
             AiRequestContext context,
             String promptVersion,
             AiExtractionResult result,
-            List<Wallet> wallets) {}
+            List<Wallet> wallets,
+            UUID requestId) {}
 }

@@ -13,6 +13,10 @@ import com.wisekoin.backend.module.ai.adaptive.AiAdaptationService;
 import com.wisekoin.backend.module.ai.adaptive.AiConfidenceScorer;
 import com.wisekoin.backend.module.ai.adaptive.AiExtractionRecordRequest;
 import com.wisekoin.backend.module.ai.context.AiRequestContextResolver;
+import com.wisekoin.backend.module.ai.ingestion.AiIngestionRequestService;
+import com.wisekoin.backend.module.ai.ingestion.AiIngestionRequestService.AiIngestionAttempt;
+import com.wisekoin.backend.module.ai.media.AiMediaIngestionService;
+import com.wisekoin.backend.module.ai.media.AiMediaPayload;
 import com.wisekoin.backend.module.ai.prompt.AiPromptService;
 import com.wisekoin.backend.module.ai.provider.AiExtractionClient;
 import com.wisekoin.backend.module.ai.provider.AiExtractionRequest;
@@ -44,7 +48,10 @@ class ReceiptAdaptiveExtractionTest {
         UserService userService = mock(UserService.class);
         AiAdaptationService adaptationService = mock(AiAdaptationService.class);
         AiDuplicateDetector duplicateDetector = mock(AiDuplicateDetector.class);
+        AiMediaIngestionService mediaIngestionService = mock(AiMediaIngestionService.class);
+        AiIngestionRequestService ingestionRequestService = mock(AiIngestionRequestService.class);
         UUID suggestionId = UUID.randomUUID();
+        UUID requestId = UUID.randomUUID();
 
         Category dining = new Category();
         dining.setId(12L);
@@ -76,6 +83,10 @@ class ReceiptAdaptiveExtractionTest {
                                 """,
                                 "FAKE",
                                 "fake-model-v3"));
+        when(mediaIngestionService.ingestReceipt(any()))
+                .thenReturn(new AiMediaPayload("image/jpeg", "AQID", "fingerprint", 3));
+        when(ingestionRequestService.begin(42L, "RECEIPT", null, "fingerprint"))
+                .thenReturn(new AiIngestionAttempt(requestId));
 
         ReceiptService service =
                 new ReceiptService(
@@ -88,6 +99,8 @@ class ReceiptAdaptiveExtractionTest {
                                 false,
                                 new java.math.BigDecimal("0.80"),
                                 new java.math.BigDecimal("0.55")),
+                        mediaIngestionService,
+                        ingestionRequestService,
                         new JsonMapper(),
                         categoryService,
                         userService,
@@ -103,6 +116,7 @@ class ReceiptAdaptiveExtractionTest {
                         "Asia/Ho_Chi_Minh");
 
         assertEquals(suggestionId, response.extractionId());
+        assertEquals(requestId, response.requestId());
         assertEquals("receipt-test-v2", response.promptVersion());
         assertEquals("fake-model-v3", response.modelVersion());
         assertEquals("FAKE", response.provider());
@@ -115,6 +129,7 @@ class ReceiptAdaptiveExtractionTest {
         ArgumentCaptor<AiExtractionRequest> requestCaptor =
                 ArgumentCaptor.forClass(AiExtractionRequest.class);
         verify(client).extract(requestCaptor.capture());
+        verify(ingestionRequestService).complete(requestId, suggestionId);
         assertEquals(true, requestCaptor.getValue().prompt().contains("Locale: vi-VN"));
         assertEquals(
                 true, requestCaptor.getValue().prompt().contains("coffee house -> 12 (Dining)"));

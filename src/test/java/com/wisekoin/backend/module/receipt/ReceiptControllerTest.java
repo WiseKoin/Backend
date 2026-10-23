@@ -4,12 +4,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.wisekoin.backend.module.auth.security.CustomUserDetails;
+import com.wisekoin.backend.module.common.exception.GlobalExceptionHandler;
 import com.wisekoin.backend.module.receipt.dto.ReceiptResponse;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -35,6 +37,7 @@ class ReceiptControllerTest {
         receiptService = mock(ReceiptService.class);
         mockMvc =
                 MockMvcBuilders.standaloneSetup(new ReceiptController(receiptService))
+                        .setControllerAdvice(new GlobalExceptionHandler())
                         .setCustomArgumentResolvers(authenticatedUser(42L))
                         .build();
     }
@@ -44,6 +47,7 @@ class ReceiptControllerTest {
         when(receiptService.extractReceipt(
                         any(MultipartFile.class),
                         eq(42L),
+                        nullable(String.class),
                         nullable(String.class),
                         nullable(String.class)))
                 .thenReturn(
@@ -67,7 +71,10 @@ class ReceiptControllerTest {
         MockMultipartFile file =
                 new MockMultipartFile("file", "receipt.jpg", "image/jpeg", new byte[] {1});
 
-        mockMvc.perform(multipart("/api/receipts/extract").file(file))
+        mockMvc.perform(
+                        multipart("/api/receipts/extract")
+                                .file(file)
+                                .header("Idempotency-Key", "receipt-request-1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.store_name").value("Neighborhood Market"))
                 .andExpect(jsonPath("$.category_id").value(7))
@@ -77,6 +84,23 @@ class ReceiptControllerTest {
                 .andExpect(jsonPath("$.occurred_at").value("2026-10-22T09:30:00"))
                 .andExpect(jsonPath("$.payment_method").value("CARD"))
                 .andExpect(jsonPath("$.requires_clarification").value(false));
+        verify(receiptService)
+                .extractReceipt(
+                        any(MultipartFile.class),
+                        eq(42L),
+                        nullable(String.class),
+                        nullable(String.class),
+                        eq("receipt-request-1"));
+    }
+
+    @Test
+    void emptyUploadReturnsGlobalErrorShape() throws Exception {
+        MockMultipartFile emptyFile =
+                new MockMultipartFile("file", "receipt.jpg", "image/jpeg", new byte[0]);
+
+        mockMvc.perform(multipart("/api/receipts/extract").file(emptyFile))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("File cannot be empty."));
     }
 
     private HandlerMethodArgumentResolver authenticatedUser(Long userId) {

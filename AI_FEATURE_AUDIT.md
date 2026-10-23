@@ -99,24 +99,26 @@ Implementation status for the adaptive layer:
 
 ### Reliability and security
 
-1. The shared `RestClient` has no explicit connect or response timeout.
-2. There is no bounded retry policy for rate limits or transient provider failures.
-3. There is no circuit breaker or provider health state.
-4. The API key is placed in the request query string instead of a request header, increasing the chance of accidental URL logging.
-5. Voice controller failures can log and return the provider response body.
-6. Controllers return inconsistent plain-string errors rather than the established global error shape.
-7. Uploaded media is read fully into memory and base64 encoding adds further memory overhead.
-8. MIME checks trust the client header or filename and do not verify file signatures/content.
-9. The 10 MB upload cap does not impose image dimensions, audio duration, or decompression limits.
-10. Receipt images and voice recordings need explicit retention and deletion behavior on Android and in any future backend persistence.
-11. Receipt text or audio can contain adversarial instructions. Media content must always be treated as untrusted data.
-12. Extraction operations have no idempotency key, duplicate fingerprint, or traceable suggestion identifier.
+| # | Finding | Status |
+|---|---|---|
+| 1 | The shared `RestClient` has no explicit connect or response timeout. | **Resolved** — connect and response timeouts are explicit, positive, environment-configurable durations. |
+| 2 | There is no bounded retry policy for rate limits or transient provider failures. | **Resolved** — rate limits, provider 5xx responses, and network/time-out failures use capped exponential backoff with at most five configurable attempts; non-transient 4xx responses are not retried. |
+| 3 | There is no circuit breaker or provider health state. | **Resolved** — primary and fallback endpoints have independent failure counters, open windows, single half-open probes, recovery, and queryable health state. |
+| 4 | The API key is placed in the request query string instead of a request header, increasing the chance of accidental URL logging. | **Resolved** — Gemini authentication uses only `x-goog-api-key`, with an exact-URL regression test preventing query credentials. |
+| 5 | Voice controller failures can log and return the provider response body. | **Resolved** — provider bodies are discarded at the integration boundary, outbound media has a redacted log representation, and clients receive only a stable safe message and code. |
+| 6 | Controllers return inconsistent plain-string errors rather than the established global error shape. | **Resolved** — receipt and voice controllers delegate failures to global advice and return JSON `error`/`code` responses consistently. |
+| 7 | Uploaded media is read fully into memory and base64 encoding adds further memory overhead. | **Resolved** — backend and Android stream source media instead of making a second full byte-array copy; the backend creates only the bounded base64 representation required by the provider contract. |
+| 8 | MIME checks trust the client header or filename and do not verify file signatures/content. | **Resolved** — JPEG, PNG, WebP, and MP4/M4A are detected from their binary structures; a conflicting declared MIME type is rejected. |
+| 9 | The 10 MB upload cap does not impose image dimensions, audio duration, or decompression limits. | **Resolved** — independently configurable 5 MB defaults, width/height and 20-megapixel limits, and an MP4 duration limit are enforced before provider calls. |
+| 10 | Receipt images and voice recordings need explicit retention and deletion behavior on Android and in any future backend persistence. | **Resolved** — the backend persists no raw media, transcripts, or provider payloads; bounded fingerprint metadata expires after 30 days and cascades on account deletion; Android deletes app-owned capture/recording files on success, failure, reset, replacement, and ViewModel cleanup paths. |
+| 11 | Receipt text or audio can contain adversarial instructions. Media content must always be treated as untrusted data. | **Resolved** — versioned prompts explicitly delimit media-derived text and context labels as untrusted data, provider output remains schema-constrained, and deterministic validation—not media instructions—controls accepted values. |
+| 12 | Extraction operations have no idempotency key, duplicate fingerprint, or traceable suggestion identifier. | **Resolved** — optional hashed `Idempotency-Key` values, user/source/day-scoped SHA-256 media fingerprints, database uniqueness, serialized request admission, and response `request_id`/`extraction_id` values provide replay control and traceability. |
 
 ### Testing and observability
 
 1. **Resolved:** Receipt service and HTTP contract tests are active and cover both valid and ambiguous extraction results.
 2. **Resolved:** Voice tests cover currency, type/category compatibility, ambiguity, batches, relative dates, transfers, ranked candidates, and duplicates.
-3. Provider calls are not exercised through a deterministic fake server.
+3. **Resolved:** Provider retries, fallback, API-key placement, safe error mapping, and request shape are exercised through deterministic fake-server tests.
 4. **Partially resolved:** Focused controller JSON contract coverage exists; full authentication-filter integration coverage for these two endpoints is still recommended.
 5. **Partially resolved:** Android DTO/serialization tests cover both extraction contracts; focused Receipt/Voice ViewModel tests are still recommended.
 6. There is no representative evaluation corpus for Vietnamese receipts, speech, currency expressions, or bank notification templates.
@@ -127,8 +129,8 @@ Implementation status for the adaptive layer:
 
 1. Receipt and voice screens contain hard-coded user-visible strings.
 2. **Resolved:** Voice and receipt review display the currency returned by the authenticated extraction contract.
-3. Voice recording has no maximum duration and can exceed useful/provider limits.
-4. Cached media deletion is incomplete on every lifecycle and failure path.
+3. **Resolved:** Android automatically stops voice recording at 55 seconds, leaving a safety margin below the backend's configurable 60-second limit.
+4. **Resolved:** App-owned receipt and voice cache files are deleted on completed, failed, cancelled/reset, replacement, capture-error, and ViewModel-cleared paths; gallery-owned content is never deleted.
 5. Camera/audio permanent permission denial needs a route to system settings.
 6. **Resolved:** Receipt and voice review display explicit ambiguity and possible-duplicate warnings.
 7. **Resolved:** Category selection and transaction submission use stable category IDs.
@@ -209,6 +211,43 @@ Adaptivity verification completed on October 23, 2026:
 - Backend Spotless apply/check: passed.
 - Android unit tests: passed, including adaptive DTO and confirmation serialization coverage.
 - Android `lintDebug` and `assembleDebug`: passed.
+
+## Reliability and security fixes implemented
+
+The remaining media-ingestion and replay controls now sit in front of both receipt and voice provider calls:
+
+- `AiMediaIngestionService` enforces separate image/audio byte limits while streaming, detects supported formats from binary headers, rejects declared-type mismatches, bounds image dimensions and decoded pixel count, and reads MP4 movie metadata to enforce recording duration.
+- The Android receipt request body streams from its content URI. App-owned camera files and voice recordings have explicit deletion on all normal, error, reset, replacement, and ViewModel cleanup paths; Android stops recording at 55 seconds before the backend's default 60-second ceiling.
+- Raw media is transient and is not added to backend persistence. `ai_ingestion_requests` contains only a one-way idempotency-key hash, media SHA-256 fingerprint, lifecycle status, and trace IDs. Rows expire after the configurable 30-day retention window and are deleted when their user is deleted.
+- Receipt and voice prompts identify context labels and media-derived content as untrusted data. Structured provider output is still subjected to the deterministic ownership, amount, currency, date, category/type, transfer, duplicate, and receipt-arithmetic checks documented above.
+- Clients may send `Idempotency-Key`. The backend serializes admission per authenticated user and enforces unique key and daily fingerprint constraints. A concurrent/in-flight or completed replay returns HTTP 409 with `AI_EXTRACTION_DUPLICATE` and the original `request_id` plus `extraction_id` when available. Failed or stale requests can be retried safely.
+- Successful extraction responses include additive `request_id` and `extraction_id` fields. The Android repository generates a new UUID idempotency key for each user-initiated receipt or voice upload.
+
+New operational configuration:
+
+- `AI_IMAGE_MAX_BYTES`, `AI_IMAGE_MAX_WIDTH`, `AI_IMAGE_MAX_HEIGHT`, and `AI_IMAGE_MAX_PIXELS`
+- `AI_AUDIO_MAX_BYTES` and `AI_AUDIO_MAX_DURATION`
+- `AI_INGESTION_PROCESSING_TIMEOUT`, `AI_INGESTION_METADATA_RETENTION`, and `AI_INGESTION_CLEANUP_CRON`
+
+Reliability/security verification completed on October 24, 2026:
+
+- Focused media-ingestion tests cover streaming without `MultipartFile.getBytes()`, stable fingerprints, MIME mismatch, excessive dimensions, valid MP4/M4A duration, excessive duration, disguised audio, and excessive MP4 container nesting.
+- Ingestion-request tests cover hashed keys, traceable duplicate conflicts, and retention cleanup.
+- Prompt regression tests cover the untrusted-data boundary.
+- Controller and exception-handler tests cover idempotency-key forwarding and the duplicate response contract.
+- Backend full suite: 93 passed; backend Spotless check passed.
+- Android `testDebugUnitTest`, `lintDebug`, and `assembleDebug`: passed.
+
+## Next recommended work
+
+With contract/correctness, adaptivity, and the listed reliability/security findings resolved, the next milestone should be measurable release readiness rather than additional prompt complexity:
+
+1. Add authentication-filter integration tests for both extraction endpoints: missing/invalid JWT, authenticated success, user isolation, multipart rejection, and 409 replay behavior through the real security chain.
+2. Add focused Android Receipt/Voice ViewModel tests for upload failure, cancellation, duplicate responses, automatic duration stop, sequential batch review, and cache-file cleanup. Move remaining AI-screen strings into resources and add the permanent-denial route to system settings.
+3. Build a consented, de-identified Vietnamese evaluation corpus covering receipts, regional speech/currency expressions, noisy audio, adversarial text, and representative bank-notification templates. Keep it out of production logs and normal source fixtures when it contains sensitive data.
+4. Define release thresholds and measure exact amount/currency/type accuracy, category top-1/top-3 accuracy, clarification rate, duplicate false-positive rate, and false balance-change rate by prompt/model version.
+5. Add privacy-safe operational metrics for provider latency, retries, circuit state, validation failures, ambiguity reasons, duplicate conflicts, and manual fallback. Do not label metrics with media, transcript, merchant, account, idempotency key, or user identifiers.
+6. Complete pending-suggestion confirmation/rejection/clarification APIs before beginning the opt-in bank-notification pilot. Automatic transaction creation remains out of scope until the release gates below are met.
 
 ## Recommended layered suggestion engine
 
@@ -366,20 +405,20 @@ Reference: [Google Play User Data policy](https://support.google.com/googleplay/
 ### Phase 1: harden current extraction
 
 - [x] Complete all ten contract/correctness fixes listed above.
-- Add HTTP timeouts, safe provider error mapping, bounded retry, and header-based API authentication.
-- Verify file signatures and impose media duration/dimension limits.
-- Move prompts to versioned resources and introduce `AiExtractionClient`.
-- Add provider fake-server and controller/security tests.
-- Stop logging or returning provider payloads.
+- [x] Add HTTP timeouts, safe provider error mapping, bounded retry, and header-based API authentication.
+- [x] Verify file signatures and impose media duration/dimension limits.
+- [x] Move prompts to versioned resources and introduce `AiExtractionClient`.
+- [ ] Complete authentication-filter integration coverage; provider fake-server and focused controller coverage are complete.
+- [x] Stop logging or returning provider payloads.
 
 ### Phase 2: suggestions and learning
 
-- Add append-only migrations for suggestions, feedback, and categorization rules.
+- [x] Add append-only migrations for extraction feedback, categorization rules, and ingestion request metadata.
 - [x] Return dates, currencies, ambiguity reasons, and candidate categories.
 - Add confirmation/rejection/clarification endpoints scoped to the authenticated user.
-- Learn explainable merchant/category rules from confirmed corrections.
+- [x] Learn explainable merchant/category rules from confirmed corrections.
 - [x] Add pre-confirmation duplicate detection.
-- [ ] Add persisted suggestion idempotency keys and source fingerprints.
+- [x] Add persisted extraction idempotency keys and source fingerprints.
 
 ### Phase 3: notification pilot
 

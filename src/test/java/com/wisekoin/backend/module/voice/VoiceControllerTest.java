@@ -1,15 +1,19 @@
 package com.wisekoin.backend.module.voice;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.wisekoin.backend.module.auth.security.CustomUserDetails;
+import com.wisekoin.backend.module.common.exception.AiProviderUnavailableException;
+import com.wisekoin.backend.module.common.exception.GlobalExceptionHandler;
 import com.wisekoin.backend.module.voice.dto.VoiceResponse;
 import com.wisekoin.backend.module.voice.dto.VoiceTransactionResponse;
 import java.math.BigDecimal;
@@ -36,6 +40,7 @@ class VoiceControllerTest {
         voiceService = mock(VoiceService.class);
         mockMvc =
                 MockMvcBuilders.standaloneSetup(new VoiceController(voiceService))
+                        .setControllerAdvice(new GlobalExceptionHandler())
                         .setCustomArgumentResolvers(authenticatedUser(42L))
                         .build();
     }
@@ -46,13 +51,17 @@ class VoiceControllerTest {
                         any(MultipartFile.class),
                         eq(42L),
                         nullable(String.class),
+                        nullable(String.class),
                         nullable(String.class)))
                 .thenReturn(voiceResponse());
 
         MockMultipartFile file =
                 new MockMultipartFile("file", "voice.m4a", "audio/mp4", new byte[] {1});
 
-        mockMvc.perform(multipart("/api/voice/extract").file(file))
+        mockMvc.perform(
+                        multipart("/api/voice/extract")
+                                .file(file)
+                                .header("Idempotency-Key", "voice-request-1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.amount").value(9000.50))
                 .andExpect(jsonPath("$.currency").value("USD"))
@@ -61,6 +70,53 @@ class VoiceControllerTest {
                 .andExpect(jsonPath("$.category").value("Unknown"))
                 .andExpect(jsonPath("$.requires_clarification").value(true))
                 .andExpect(jsonPath("$.transactions.length()").value(1));
+        verify(voiceService)
+                .extractVoice(
+                        any(MultipartFile.class),
+                        eq(42L),
+                        nullable(String.class),
+                        nullable(String.class),
+                        eq("voice-request-1"));
+    }
+
+    @Test
+    void emptyUploadReturnsGlobalErrorShape() throws Exception {
+        MockMultipartFile emptyFile =
+                new MockMultipartFile("file", "voice.m4a", "audio/mp4", new byte[0]);
+
+        mockMvc.perform(multipart("/api/voice/extract").file(emptyFile))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("File cannot be empty."));
+    }
+
+    @Test
+    void providerFailureReturnsSafeGlobalErrorWithoutProviderBody() throws Exception {
+        when(voiceService.extractVoice(
+                        any(MultipartFile.class),
+                        eq(42L),
+                        nullable(String.class),
+                        nullable(String.class),
+                        nullable(String.class)))
+                .thenThrow(
+                        new AiProviderUnavailableException(
+                                "AI extraction is temporarily unavailable. Please try again later.",
+                                new RuntimeException("provider-secret-payload")));
+        MockMultipartFile file =
+                new MockMultipartFile("file", "voice.m4a", "audio/mp4", new byte[] {1});
+
+        mockMvc.perform(multipart("/api/voice/extract").file(file))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("AI_PROVIDER_UNAVAILABLE"))
+                .andExpect(
+                        jsonPath("$.error")
+                                .value(
+                                        "AI extraction is temporarily unavailable. Please try again later."))
+                .andExpect(
+                        result ->
+                                assertFalse(
+                                        result.getResponse()
+                                                .getContentAsString()
+                                                .contains("provider-secret-payload")));
     }
 
     private VoiceResponse voiceResponse() {
