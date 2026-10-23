@@ -2,14 +2,6 @@
 
 Spring Boot REST API for the WiseKoin financial management application.
 
-## Group Members
-
-| Student ID | Full Name             | Role                                                                                   |
-|------------|-----------------------|----------------------------------------------------------------------------------------|
-| 24125076   | Tran Thien Phuc       | Backend: Auth, Wallet, Transaction, Category, Goal, Debt, Receipt modules; JWT security; event-driven balance updates (33.33%) |
-| 24125016   | Hoang Duc Hung Phat   | Backend: Receipt modules; Gemini API integration; database schema and migrations (33.33%)                              |
-| 24125053   | Nguyen Van Le Bao     | Deploy database on Neon & backend on Render; API integration documentation (33.33%)                                    |
-
 ## Project Title
 
 **WiseKoin** — Financial Tracking and Planning Mobile Application
