@@ -25,13 +25,16 @@ public class VoiceController {
     @PostMapping(value = "/extract", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> extractVoiceData(
             @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "locale", required = false) String locale,
+            @RequestParam(value = "time_zone", required = false) String timeZone,
             @AuthenticationPrincipal CustomUserDetails currentUser) {
         if (file == null || file.isEmpty()) {
             return ResponseEntity.badRequest().body("File cannot be empty.");
         }
 
         try {
-            VoiceResponse result = voiceService.extractVoice(file, currentUser.getId());
+            VoiceResponse result =
+                    voiceService.extractVoice(file, currentUser.getId(), locale, timeZone);
             return ResponseEntity.ok(result);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());

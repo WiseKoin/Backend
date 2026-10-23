@@ -85,13 +85,17 @@ Implementation status is kept here as the source of truth while the work progres
 
 ### Adaptivity
 
-1. User corrections are not stored as categorization feedback.
-2. There is no merchant/counterparty normalization or user-specific merchant rule table.
-3. The prompt is embedded in Java and is not versioned independently from service code.
-4. There is no prompt/model version recorded with an extraction result.
-5. There is no provider abstraction for model upgrades, fallback, or deterministic test doubles.
-6. Relevant context such as locale, timezone, prior confirmed merchant mappings, and wallet/source mappings is not supplied in a controlled form.
-7. A model-generated confidence number would not be calibrated. Confidence must combine measurable application signals and evaluation results.
+Implementation status for the adaptive layer:
+
+| # | Finding | Status |
+|---|---|---|
+| 1 | User corrections were not stored as categorization feedback. | **Resolved** — traceable suggestions and accepted/corrected confirmation outcomes are persisted without raw media, transcripts, or provider payloads. |
+| 2 | There was no merchant/counterparty normalization or user-specific merchant rule table. | **Resolved** — deterministic Unicode normalization and user-scoped rules are implemented; rules are created only through an explicit remember choice. |
+| 3 | Prompts were embedded in Java and not versioned independently from service code. | **Resolved** — receipt and voice prompts are versioned resources with independently configurable resource locations and version labels. |
+| 4 | Prompt/model versions were not recorded with extraction results. | **Resolved** — provider, model, prompt, locale/timezone, rule, and confidence-profile metadata are stored with every suggestion. |
+| 5 | There was no provider abstraction for upgrades, fallback, or deterministic test doubles. | **Resolved** — services use `AiExtractionClient`; Gemini is one implementation with configurable primary/fallback endpoints, and extraction orchestration is tested with a fake client. |
+| 6 | Locale, timezone, confirmed merchant mappings, and wallet/source mappings were not supplied as controlled context. | **Resolved** — Android supplies device context, the backend validates/defaults it, and bounded owned category/wallet/rule mappings are supplied as untrusted data labels. |
+| 7 | A model-generated confidence number would be uncalibrated. | **Resolved** — confidence is derived from deterministic validation signals, identifies its profile, and remains explicitly `calibrated=false` until a representative corpus validates its thresholds. |
 
 ### Reliability and security
 
@@ -176,6 +180,35 @@ Verification completed on October 23, 2026:
 - Backend full suite: 67 passed.
 - Backend Spotless formatting/check: passed.
 - Android unit tests, `lintDebug`, and `assembleDebug`: passed.
+
+## Adaptivity fixes implemented
+
+The adaptive layer now follows the same pending-suggestion boundary as the rest of the AI flow:
+
+- Migration `V9__add_adaptive_ai_feedback.sql` adds `ai_extractions`, append-only `ai_feedback`, and user-scoped `categorization_rules`. Suggestion ownership is enforced during confirmation and concurrent double-confirmation is guarded with a database write lock.
+- Receipt and each voice transaction return an additive `extraction_id`. Android sends that ID with the normal transaction request so feedback is committed in the same transaction as the confirmed expense.
+- Accepted and corrected category/type decisions are retained as feedback. A merchant rule is only created or changed when the user selects **Remember this merchant and category**; the default remains off.
+- Merchant/counterparty keys are normalized deterministically across case, punctuation, whitespace, Vietnamese combining marks, and `đ`/`Đ`. A learned rule is applied only when its category still exists, belongs to the user, and matches the transaction type.
+- Prompts moved to `receipt-v2.txt` and `voice-v2.txt`. Resource paths and version labels are deployment configuration, and the used prompt/provider/model versions are attached to and stored with every suggestion.
+- `ReceiptService` and `VoiceService` depend on the provider-neutral `AiExtractionClient`. The Gemini implementation sends the API key in a header, supports a configured fallback endpoint/model, and returns provider metadata separately from extracted JSON.
+- Android sends its BCP 47 locale and IANA timezone. Voice context includes stable IDs for owned wallets, allowing clearly spoken source/destination wallets to be preselected without trusting display-name matching.
+- Confidence is an application score based on semantic ambiguities, possible duplicates, and confirmed-rule matches. It is not the model's self-reported probability. The response includes score, level, reasons, profile, and calibration state.
+- Stored adaptive records intentionally exclude images, audio, transcripts, full notes, provider responses, and provider payloads.
+
+Additive API fields introduced by this layer:
+
+- Extraction responses: `extraction_id`, `prompt_version`, `model_version`, `provider`, `locale`, `time_zone`, `rule_applied`, and `confidence`.
+- Voice transaction responses: `counterparty`, `source_wallet_id`, and `destination_wallet_id`.
+- Transaction create requests: optional `aiExtractionId` and `rememberAiCategory`.
+- Receipt/voice multipart requests: optional `locale` and `time_zone`; older clients continue to use configured defaults.
+
+Adaptivity verification completed on October 23, 2026:
+
+- Backend adaptive-focused tests: 10 passed.
+- Backend clean full suite: 76 passed.
+- Backend Spotless apply/check: passed.
+- Android unit tests: passed, including adaptive DTO and confirmation serialization coverage.
+- Android `lintDebug` and `assembleDebug`: passed.
 
 ## Recommended layered suggestion engine
 

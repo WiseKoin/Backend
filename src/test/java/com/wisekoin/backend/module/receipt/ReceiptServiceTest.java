@@ -12,7 +12,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.wisekoin.backend.module.ai.AiDuplicateDetector;
+import com.wisekoin.backend.module.ai.adaptive.AiAdaptationService;
+import com.wisekoin.backend.module.ai.adaptive.AiConfidenceScorer;
+import com.wisekoin.backend.module.ai.context.AiRequestContextResolver;
 import com.wisekoin.backend.module.ai.dto.AiDuplicateCandidate;
+import com.wisekoin.backend.module.ai.prompt.AiPromptService;
+import com.wisekoin.backend.module.ai.provider.AiExtractionClient;
 import com.wisekoin.backend.module.category.Category;
 import com.wisekoin.backend.module.category.CategoryService;
 import com.wisekoin.backend.module.receipt.dto.ReceiptResponse;
@@ -29,7 +34,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.web.client.RestClient;
 import tools.jackson.databind.json.JsonMapper;
 
 class ReceiptServiceTest {
@@ -48,7 +52,11 @@ class ReceiptServiceTest {
                 .thenReturn(List.of());
         receiptService =
                 new ReceiptService(
-                        mock(RestClient.class),
+                        mock(AiExtractionClient.class),
+                        mock(AiPromptService.class),
+                        mock(AiRequestContextResolver.class),
+                        mock(AiAdaptationService.class),
+                        mock(AiConfidenceScorer.class),
                         new JsonMapper(),
                         mock(CategoryService.class),
                         mock(UserService.class),
@@ -101,16 +109,7 @@ class ReceiptServiceTest {
     @DisplayName("Should keep Unknown valid when the user has no expense categories")
     @SuppressWarnings("unchecked")
     void buildRequest_WhenNoCategories_ShouldAllowUnknown() {
-        Map<String, Object> request =
-                receiptService.buildGeminiRequestBody(
-                        "image/jpeg",
-                        "image-data",
-                        List.of(),
-                        "VND",
-                        LocalDateTime.of(2026, 10, 23, 17, 0));
-        Map<String, Object> generationConfig =
-                (Map<String, Object>) request.get("generationConfig");
-        Map<String, Object> schema = (Map<String, Object>) generationConfig.get("response_schema");
+        Map<String, Object> schema = receiptService.buildResponseSchema(List.of());
         Map<String, Object> properties = (Map<String, Object>) schema.get("properties");
         Map<String, Object> categorySchema = (Map<String, Object>) properties.get("category_id");
 

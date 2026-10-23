@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -32,4 +33,8 @@ public class TransactionRequest {
     private Long debtId;
 
     private Long goalId;
+
+    private UUID aiExtractionId;
+
+    private boolean rememberAiCategory;
 }

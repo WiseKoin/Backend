@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.wisekoin.backend.module.ai.adaptive.AiAdaptationService;
 import com.wisekoin.backend.module.category.CategoryRepository;
 import com.wisekoin.backend.module.debt.DebtRepository;
 import com.wisekoin.backend.module.goal.Goal;
@@ -33,7 +34,8 @@ class TransactionServiceStatsTest {
                         mock(CategoryRepository.class),
                         mock(DebtRepository.class),
                         mock(GoalRepository.class),
-                        mock(ApplicationEventPublisher.class));
+                        mock(ApplicationEventPublisher.class),
+                        mock(AiAdaptationService.class));
 
         when(transactionRepository.findAllByUserIdAndTransactionDateBetween(
                         eq(9L), any(LocalDateTime.class), any(LocalDateTime.class)))

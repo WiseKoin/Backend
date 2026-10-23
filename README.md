@@ -116,10 +116,12 @@ transactions. A day such as `31` is clamped to the last day of shorter months.
 - `POST /api/goals/{id}/fund` — Add funds to a goal
 
 ### Receipts
-- `POST /api/receipts/extract` — Upload a receipt image; returns typed receipt facts, decimal amounts, currency/date, payment breakdown, ranked owned-category candidates, field ambiguities, and possible duplicates. An unresolved category has a `null` ID and the display name `Unknown`.
+- `POST /api/receipts/extract` — Upload a receipt image with optional `locale` and `time_zone` multipart fields; returns typed facts, ranked owned-category candidates, validation-derived confidence, provider/prompt metadata, and a traceable `extraction_id`. An unresolved category has a `null` ID and the display name `Unknown`.
 
 ### Voice
-- `POST /api/voice/extract` — Upload an audio recording; returns one transcript and a `transactions` array supporting multiple expenses, income entries, and transfers with resolved relative dates, ranked owned-category candidates, ambiguity metadata, and possible duplicates. Compatibility fields at the response root mirror the first transaction. Ambiguous transaction types are returned as `UNKNOWN` and require user clarification before saving.
+- `POST /api/voice/extract` — Upload an audio recording with optional `locale` and `time_zone` multipart fields; returns one transcript and a `transactions` array supporting multiple entries, stable owned wallet IDs, ranked categories, validation-derived confidence, and per-item `extraction_id` values. Compatibility fields at the response root mirror the first transaction.
+
+When a transaction is created from an AI suggestion, send its `aiExtractionId` in the normal transaction request. Set `rememberAiCategory=true` only after an explicit user opt-in; this stores the confirmation feedback and updates that user's normalized merchant/category rule. Raw images, audio, transcripts, and provider payloads are not stored by the adaptive layer.
 
 See [AI_FEATURE_AUDIT.md](AI_FEATURE_AUDIT.md) for the AI reliability audit, layered suggestion-engine design, and the notification/bank-integration roadmap.
 
@@ -142,6 +144,19 @@ JWT_SECRET=your_jwt_secret_min_256_bits
 JWT_EXPIRATION=900000
 JWT_REFRESH_EXPIRATION=2592000000
 VISION_LANGUAGE_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-3.1-flash-lite
+GEMINI_URL=https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent
+GEMINI_FALLBACK_URL=
+GEMINI_FALLBACK_MODEL=
+AI_DEFAULT_LOCALE=vi-VN
+AI_RECEIPT_PROMPT_RESOURCE=classpath:ai/prompts/receipt-v2.txt
+AI_RECEIPT_PROMPT_VERSION=receipt-v2
+AI_VOICE_PROMPT_RESOURCE=classpath:ai/prompts/voice-v2.txt
+AI_VOICE_PROMPT_VERSION=voice-v2
+AI_CONFIDENCE_PROFILE=baseline-v1
+AI_CONFIDENCE_CALIBRATED=false
+AI_CONFIDENCE_HIGH_THRESHOLD=0.80
+AI_CONFIDENCE_MEDIUM_THRESHOLD=0.55
 APP_TIME_ZONE=Asia/Ho_Chi_Minh
 FORWARD_HEADERS_STRATEGY=native
 RECURRING_TRANSACTIONS_CRON=0 5 0 * * *

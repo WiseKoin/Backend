@@ -2,6 +2,7 @@ package com.wisekoin.backend.module.receipt;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -40,7 +41,11 @@ class ReceiptControllerTest {
 
     @Test
     void extractReturnsDecimalAmountAndStableCategoryId() throws Exception {
-        when(receiptService.extractReceipt(any(MultipartFile.class), eq(42L)))
+        when(receiptService.extractReceipt(
+                        any(MultipartFile.class),
+                        eq(42L),
+                        nullable(String.class),
+                        nullable(String.class)))
                 .thenReturn(
                         new ReceiptResponse(
                                 "Neighborhood Market",

@@ -1,5 +1,6 @@
 package com.wisekoin.backend.module.transaction;
 
+import com.wisekoin.backend.module.ai.adaptive.AiAdaptationService;
 import com.wisekoin.backend.module.category.Category;
 import com.wisekoin.backend.module.category.CategoryRepository;
 import com.wisekoin.backend.module.common.event.TransactionCreatedEvent;
@@ -44,6 +45,7 @@ public class TransactionService {
     private final DebtRepository debtRepository;
     private final GoalRepository goalRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final AiAdaptationService aiAdaptationService;
 
     @Transactional
     public Transaction createTransaction(Long userId, TransactionRequest request) {
@@ -86,6 +88,13 @@ public class TransactionService {
         }
 
         Transaction savedTransaction = transactionRepository.save(newTransaction);
+
+        aiAdaptationService.confirmExtraction(
+                userId,
+                request.getAiExtractionId(),
+                request.getCategoryId(),
+                request.getType(),
+                request.isRememberAiCategory());
 
         eventPublisher.publishEvent(
                 new TransactionCreatedEvent(

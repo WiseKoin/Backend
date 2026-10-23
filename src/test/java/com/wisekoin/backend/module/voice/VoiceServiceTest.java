@@ -12,11 +12,18 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.wisekoin.backend.module.ai.AiDuplicateDetector;
+import com.wisekoin.backend.module.ai.adaptive.AiAdaptationService;
+import com.wisekoin.backend.module.ai.adaptive.AiConfidenceScorer;
+import com.wisekoin.backend.module.ai.context.AiRequestContextResolver;
 import com.wisekoin.backend.module.ai.dto.AiDuplicateCandidate;
+import com.wisekoin.backend.module.ai.prompt.AiPromptService;
+import com.wisekoin.backend.module.ai.provider.AiExtractionClient;
 import com.wisekoin.backend.module.category.Category;
 import com.wisekoin.backend.module.category.CategoryService;
 import com.wisekoin.backend.module.user.UserService;
 import com.wisekoin.backend.module.voice.dto.VoiceResponse;
+import com.wisekoin.backend.module.wallet.Wallet;
+import com.wisekoin.backend.module.wallet.WalletRepository;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -29,7 +36,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.web.client.RestClient;
 import tools.jackson.databind.json.JsonMapper;
 
 class VoiceServiceTest {
@@ -50,11 +56,16 @@ class VoiceServiceTest {
                 .thenReturn(List.of());
         voiceService =
                 new VoiceService(
-                        mock(RestClient.class),
+                        mock(AiExtractionClient.class),
+                        mock(AiPromptService.class),
+                        mock(AiRequestContextResolver.class),
+                        mock(AiAdaptationService.class),
+                        mock(AiConfidenceScorer.class),
                         jsonMapper,
                         mock(CategoryService.class),
                         mock(UserService.class),
                         duplicateDetector,
+                        mock(WalletRepository.class),
                         Clock.fixed(Instant.parse("2026-10-23T10:00:00Z"), ZoneOffset.UTC));
     }
 
@@ -113,21 +124,26 @@ class VoiceServiceTest {
     }
 
     @Test
-    @DisplayName("Should build a currency-aware prompt with typed category IDs")
-    void buildRequest_ShouldUseCurrencyAndTypedCategoryIds() throws IOException {
+    @DisplayName("Should build a typed response schema with owned category and wallet IDs")
+    void buildSchema_ShouldUseTypedCategoryAndWalletIds() throws IOException {
         List<Category> categories =
                 List.of(
                         category(10L, "Dining", Category.CategoryType.EXPENSE),
                         category(20L, "Salary", Category.CategoryType.INCOME));
 
-        Map<String, Object> request =
-                voiceService.buildGeminiRequestBody("audio/mp4", "audio-data", categories, "USD");
-        String json = jsonMapper.writeValueAsString(request);
+        Wallet wallet = new Wallet();
+        wallet.setId(30L);
+        wallet.setName("Cash");
+        Map<String, Object> schema =
+                voiceService.buildResponseSchema(categories, List.of(wallet), "USD");
+        String json = jsonMapper.writeValueAsString(schema);
 
         assertTrue(json.contains("USD"));
-        assertTrue(json.contains("10 = Dining"));
-        assertTrue(json.contains("20 = Salary"));
+        assertTrue(json.contains("\"10\""));
+        assertTrue(json.contains("\"20\""));
+        assertTrue(json.contains("\"30\""));
         assertTrue(json.contains("category_id"));
+        assertTrue(json.contains("source_wallet_id"));
     }
 
     @Test

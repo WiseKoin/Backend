@@ -4,8 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.wisekoin.backend.module.ai.adaptive.AiAdaptationService;
 import com.wisekoin.backend.module.category.CategoryRepository;
 import com.wisekoin.backend.module.debt.DebtRepository;
 import com.wisekoin.backend.module.goal.GoalRepository;
@@ -16,6 +18,7 @@ import com.wisekoin.backend.module.wallet.Wallet;
 import com.wisekoin.backend.module.wallet.WalletRepository;
 import java.math.BigDecimal;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 
@@ -27,6 +30,7 @@ class TransactionServiceTest {
     private final DebtRepository debtRepository = mock(DebtRepository.class);
     private final GoalRepository goalRepository = mock(GoalRepository.class);
     private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
+    private final AiAdaptationService aiAdaptationService = mock(AiAdaptationService.class);
     private final TransactionService service =
             new TransactionService(
                     transactionRepository,
@@ -35,7 +39,8 @@ class TransactionServiceTest {
                     categoryRepository,
                     debtRepository,
                     goalRepository,
-                    eventPublisher);
+                    eventPublisher,
+                    aiAdaptationService);
 
     @Test
     void walletTransferAllowsNoCategoryAndKeepsOwnedDestination() {
@@ -54,12 +59,17 @@ class TransactionServiceTest {
         request.setDestinationWalletId(2L);
         request.setAmount(new BigDecimal("250000"));
         request.setType(Transaction.TransactionType.TRANSFER);
+        UUID extractionId = UUID.randomUUID();
+        request.setAiExtractionId(extractionId);
 
         Transaction transaction = service.createTransaction(42L, request);
 
         assertNull(transaction.getCategory());
         assertEquals(2L, transaction.getDestinationWallet().getId());
         assertEquals(Transaction.TransactionType.TRANSFER, transaction.getType());
+        verify(aiAdaptationService)
+                .confirmExtraction(
+                        42L, extractionId, null, Transaction.TransactionType.TRANSFER, false);
     }
 
     private Wallet wallet(Long id, User user) {

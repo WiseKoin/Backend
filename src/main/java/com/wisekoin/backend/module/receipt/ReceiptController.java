@@ -25,13 +25,16 @@ public class ReceiptController {
     @PostMapping(value = "/extract", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> extractReceiptData(
             @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "locale", required = false) String locale,
+            @RequestParam(value = "time_zone", required = false) String timeZone,
             @AuthenticationPrincipal CustomUserDetails currentUser) {
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().body("File cannot be empty.");
         }
 
         try {
-            ReceiptResponse result = receiptService.extractReceipt(file, currentUser.getId());
+            ReceiptResponse result =
+                    receiptService.extractReceipt(file, currentUser.getId(), locale, timeZone);
             return ResponseEntity.ok(result);
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
