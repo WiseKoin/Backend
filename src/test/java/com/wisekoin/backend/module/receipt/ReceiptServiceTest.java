@@ -4,13 +4,25 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import com.wisekoin.backend.module.ai.AiDuplicateDetector;
+import com.wisekoin.backend.module.ai.dto.AiDuplicateCandidate;
 import com.wisekoin.backend.module.category.Category;
 import com.wisekoin.backend.module.category.CategoryService;
 import com.wisekoin.backend.module.receipt.dto.ReceiptResponse;
+import com.wisekoin.backend.module.user.UserService;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,12 +34,26 @@ import tools.jackson.databind.json.JsonMapper;
 
 class ReceiptServiceTest {
     private ReceiptService receiptService;
+    private AiDuplicateDetector duplicateDetector;
 
     @BeforeEach
     void setUp() {
+        duplicateDetector = mock(AiDuplicateDetector.class);
+        when(duplicateDetector.findCandidates(
+                        anyLong(),
+                        any(BigDecimal.class),
+                        anyString(),
+                        nullable(LocalDateTime.class),
+                        anyString()))
+                .thenReturn(List.of());
         receiptService =
                 new ReceiptService(
-                        mock(RestClient.class), new JsonMapper(), mock(CategoryService.class));
+                        mock(RestClient.class),
+                        new JsonMapper(),
+                        mock(CategoryService.class),
+                        mock(UserService.class),
+                        duplicateDetector,
+                        Clock.fixed(Instant.parse("2026-10-23T10:00:00Z"), ZoneOffset.UTC));
     }
 
     @Test
@@ -76,7 +102,12 @@ class ReceiptServiceTest {
     @SuppressWarnings("unchecked")
     void buildRequest_WhenNoCategories_ShouldAllowUnknown() {
         Map<String, Object> request =
-                receiptService.buildGeminiRequestBody("image/jpeg", "image-data", List.of());
+                receiptService.buildGeminiRequestBody(
+                        "image/jpeg",
+                        "image-data",
+                        List.of(),
+                        "VND",
+                        LocalDateTime.of(2026, 10, 23, 17, 0));
         Map<String, Object> generationConfig =
                 (Map<String, Object>) request.get("generationConfig");
         Map<String, Object> schema = (Map<String, Object>) generationConfig.get("response_schema");
@@ -92,7 +123,8 @@ class ReceiptServiceTest {
         Category dining = category(12L, "Dining", Category.CategoryType.EXPENSE);
         String responseRaw = geminiResponse("Coffee House", "12", "45000.25");
 
-        ReceiptResponse response = receiptService.parseGeminiResponse(responseRaw, List.of(dining));
+        ReceiptResponse response =
+                receiptService.parseGeminiResponse(responseRaw, List.of(dining), 1L, "VND");
 
         assertEquals("Coffee House", response.storeName());
         assertEquals(12L, response.categoryId());
@@ -106,7 +138,8 @@ class ReceiptServiceTest {
         String responseRaw =
                 geminiResponse("Unknown merchant", ReceiptService.UNKNOWN_CATEGORY_ID, "100000");
 
-        ReceiptResponse response = receiptService.parseGeminiResponse(responseRaw, List.of());
+        ReceiptResponse response =
+                receiptService.parseGeminiResponse(responseRaw, List.of(), 1L, "VND");
 
         assertNull(response.categoryId());
         assertEquals("Unknown", response.category());
@@ -121,9 +154,101 @@ class ReceiptServiceTest {
         IllegalStateException exception =
                 assertThrows(
                         IllegalStateException.class,
-                        () -> receiptService.parseGeminiResponse(responseRaw, List.of()));
+                        () ->
+                                receiptService.parseGeminiResponse(
+                                        responseRaw, List.of(), 1L, "VND"));
 
         assertTrue(exception.getMessage().contains("positive amount"));
+    }
+
+    @Test
+    @DisplayName("Should return rich receipt facts and ranked owned category candidates")
+    void parseResponse_WhenRichFactsAreValid_ShouldReturnTypedFacts() throws IOException {
+        Category dining = category(12L, "Dining", Category.CategoryType.EXPENSE);
+        Category groceries = category(13L, "Groceries", Category.CategoryType.EXPENSE);
+        String extracted =
+                """
+                {
+                  "store_name":"Coffee House",
+                  "category_id":"12",
+                  "category_candidates":["12","13","999"],
+                  "amount":110.00,
+                  "currency":"VND",
+                  "occurred_at":"2026-10-22T08:30:00",
+                  "subtotal":100.00,
+                  "tax":10.00,
+                  "discount":0,
+                  "tip":0,
+                  "payment_method":"CARD",
+                  "ambiguities":[]
+                }
+                """;
+
+        ReceiptResponse response =
+                receiptService.parseGeminiResponse(
+                        geminiResponse(extracted), List.of(dining, groceries), 1L, "VND");
+
+        assertEquals(LocalDateTime.of(2026, 10, 22, 8, 30), response.occurredAt());
+        assertEquals("VND", response.currency());
+        assertEquals(new BigDecimal("100.00"), response.subtotal());
+        assertEquals("CARD", response.paymentMethod());
+        assertEquals(
+                List.of(12L, 13L),
+                response.categoryCandidates().stream()
+                        .map(candidate -> candidate.categoryId())
+                        .toList());
+        assertEquals(
+                List.of(1, 2),
+                response.categoryCandidates().stream().map(candidate -> candidate.rank()).toList());
+    }
+
+    @Test
+    @DisplayName("Should flag semantic currency, arithmetic, date, and duplicate problems")
+    void parseResponse_WhenSemanticsConflict_ShouldRequireClarification() throws IOException {
+        AiDuplicateCandidate duplicate =
+                new AiDuplicateCandidate(
+                        99L,
+                        new BigDecimal("110.00"),
+                        "EXPENSE",
+                        LocalDateTime.of(2026, 10, 22, 8, 30),
+                        List.of("EXACT_AMOUNT"));
+        when(duplicateDetector.findCandidates(
+                        anyLong(),
+                        any(BigDecimal.class),
+                        anyString(),
+                        nullable(LocalDateTime.class),
+                        anyString()))
+                .thenReturn(List.of(duplicate));
+        String extracted =
+                """
+                {
+                  "store_name":"Coffee House",
+                  "category_id":"UNKNOWN",
+                  "category_candidates":[],
+                  "amount":110.00,
+                  "currency":"USD",
+                  "occurred_at":"2030-01-01T00:00:00",
+                  "subtotal":80.00,
+                  "tax":10.00,
+                  "discount":0,
+                  "tip":0,
+                  "payment_method":"UNKNOWN",
+                  "ambiguities":[]
+                }
+                """;
+
+        ReceiptResponse response =
+                receiptService.parseGeminiResponse(geminiResponse(extracted), List.of(), 1L, "VND");
+
+        assertTrue(response.requiresClarification());
+        assertNull(response.occurredAt());
+        assertEquals(1, response.duplicateCandidates().size());
+        assertTrue(
+                response.ambiguities().stream()
+                        .anyMatch(ambiguity -> ambiguity.code().equals("ARITHMETIC_MISMATCH")));
+        assertTrue(
+                response.ambiguities().stream()
+                        .anyMatch(ambiguity -> ambiguity.code().equals("BASE_CURRENCY_MISMATCH")));
     }
 
     private Category category(Long id, String name, Category.CategoryType type) {
@@ -143,12 +268,21 @@ class ReceiptServiceTest {
                         + "\",\"amount\":"
                         + amount
                         + "}";
+        return geminiResponse(extracted);
+    }
+
+    private String geminiResponse(String extracted) {
         return "{\"candidates\":[{\"content\":{\"parts\":[{\"text\":"
                 + quoteJson(extracted)
                 + "}]}}]}";
     }
 
     private String quoteJson(String value) {
-        return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+        return "\""
+                + value.replace("\\", "\\\\")
+                        .replace("\"", "\\\"")
+                        .replace("\r", "\\r")
+                        .replace("\n", "\\n")
+                + "\"";
     }
 }

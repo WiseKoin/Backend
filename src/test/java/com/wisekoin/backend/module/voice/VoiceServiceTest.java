@@ -4,14 +4,25 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import com.wisekoin.backend.module.ai.AiDuplicateDetector;
+import com.wisekoin.backend.module.ai.dto.AiDuplicateCandidate;
 import com.wisekoin.backend.module.category.Category;
 import com.wisekoin.backend.module.category.CategoryService;
 import com.wisekoin.backend.module.user.UserService;
 import com.wisekoin.backend.module.voice.dto.VoiceResponse;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,16 +35,27 @@ import tools.jackson.databind.json.JsonMapper;
 class VoiceServiceTest {
     private VoiceService voiceService;
     private JsonMapper jsonMapper;
+    private AiDuplicateDetector duplicateDetector;
 
     @BeforeEach
     void setUp() {
         jsonMapper = new JsonMapper();
+        duplicateDetector = mock(AiDuplicateDetector.class);
+        when(duplicateDetector.findCandidates(
+                        anyLong(),
+                        any(BigDecimal.class),
+                        anyString(),
+                        nullable(LocalDateTime.class),
+                        anyString()))
+                .thenReturn(List.of());
         voiceService =
                 new VoiceService(
                         mock(RestClient.class),
                         jsonMapper,
                         mock(CategoryService.class),
-                        mock(UserService.class));
+                        mock(UserService.class),
+                        duplicateDetector,
+                        Clock.fixed(Instant.parse("2026-10-23T10:00:00Z"), ZoneOffset.UTC));
     }
 
     @Test
@@ -175,6 +197,86 @@ class VoiceServiceTest {
         assertTrue(exception.getMessage().contains("positive amount"));
     }
 
+    @Test
+    @DisplayName(
+            "Should extract multiple transactions, relative dates, transfers, and ranked candidates")
+    void parseGeminiResponse_WhenBatchIsValid_ShouldReturnAllTransactions() throws IOException {
+        Category dining = category(10L, "Dining", Category.CategoryType.EXPENSE);
+        Category transport = category(11L, "Transport", Category.CategoryType.EXPENSE);
+        String extracted =
+                """
+                {
+                  "transcript":"Yesterday lunch was 50000 and I moved 200000 to savings",
+                  "transactions":[
+                    {
+                      "amount":50000,
+                      "type":"EXPENSE",
+                      "category_id":"10",
+                      "category_candidates":["10","11"],
+                      "note":"Lunch",
+                      "occurred_at":"2026-10-22T12:00:00",
+                      "source_wallet_hint":"Cash",
+                      "destination_wallet_hint":"",
+                      "ambiguities":[]
+                    },
+                    {
+                      "amount":200000,
+                      "type":"TRANSFER",
+                      "category_id":"UNKNOWN",
+                      "category_candidates":[],
+                      "note":"Move to savings",
+                      "occurred_at":"2026-10-23T09:00:00",
+                      "source_wallet_hint":"Cash",
+                      "destination_wallet_hint":"Savings",
+                      "ambiguities":[]
+                    }
+                  ]
+                }
+                """;
+
+        VoiceResponse response =
+                voiceService.parseGeminiResponse(
+                        geminiResponse(extracted), List.of(dining, transport), "VND", 1L);
+
+        assertEquals(2, response.transactions().size());
+        assertEquals(LocalDateTime.of(2026, 10, 22, 12, 0), response.occurredAt());
+        assertEquals(
+                List.of(10L, 11L),
+                response.transactions().getFirst().categoryCandidates().stream()
+                        .map(candidate -> candidate.categoryId())
+                        .toList());
+        assertEquals("TRANSFER", response.transactions().get(1).type());
+        assertEquals("Savings", response.transactions().get(1).destinationWalletHint());
+        assertTrue(response.transactions().get(1).requiresClarification());
+    }
+
+    @Test
+    @DisplayName("Should surface duplicate candidates before a voice transaction is saved")
+    void parseGeminiResponse_WhenDuplicateExists_ShouldRequireClarification() throws IOException {
+        AiDuplicateCandidate duplicate =
+                new AiDuplicateCandidate(
+                        88L,
+                        new BigDecimal("100000"),
+                        "EXPENSE",
+                        LocalDateTime.of(2026, 10, 23, 9, 0),
+                        List.of("EXACT_AMOUNT"));
+        when(duplicateDetector.findCandidates(
+                        anyLong(),
+                        any(BigDecimal.class),
+                        anyString(),
+                        nullable(LocalDateTime.class),
+                        anyString()))
+                .thenReturn(List.of(duplicate));
+        String rawGeminiJson =
+                geminiResponse("100000", "EXPENSE", "UNKNOWN", "Purchase", "Spent 100000");
+
+        VoiceResponse response =
+                voiceService.parseGeminiResponse(rawGeminiJson, List.of(), "VND", 1L);
+
+        assertTrue(response.requiresClarification());
+        assertEquals(1, response.transactions().getFirst().duplicateCandidates().size());
+    }
+
     private Category category(Long id, String name, Category.CategoryType type) {
         Category category = new Category();
         category.setId(id);
@@ -197,12 +299,21 @@ class VoiceServiceTest {
                         + "\",\"transcript\":\""
                         + transcript
                         + "\"}";
+        return geminiResponse(extracted);
+    }
+
+    private String geminiResponse(String extracted) {
         return "{\"candidates\":[{\"content\":{\"parts\":[{\"text\":"
                 + quoteJson(extracted)
                 + "}]}}]}";
     }
 
     private String quoteJson(String value) {
-        return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+        return "\""
+                + value.replace("\\", "\\\\")
+                        .replace("\"", "\\\"")
+                        .replace("\r", "\\r")
+                        .replace("\n", "\\n")
+                + "\"";
     }
 }

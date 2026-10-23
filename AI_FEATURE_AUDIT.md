@@ -68,16 +68,20 @@ References:
 
 ### Contract and correctness
 
-1. **Receipt amounts used binary floating point.** `Double` could round financial values in the backend and Android client.
-2. **Receipt `Unknown` was not schema-valid.** The prompt allowed `Unknown`, but the category enum contained only user category names and could be empty.
-3. **Voice extraction hard-coded VND and defaulted ambiguity to expense.** This ignored the user's configured base currency and risked creating a transaction with the wrong direction.
-4. **Voice categories were not type-safe.** Income, expense, lend, and borrow categories were mixed even though the voice contract only produced income or expense transactions.
-5. **AI and client flows depended on category display names.** Renames, casing differences, and localization could break selection; names are not stable identifiers.
-6. Receipt extraction does not return receipt date/time, currency, tax, discount, tip, subtotal, payment method, or field-level ambiguity.
-7. Voice extraction only supports one transaction and does not model relative transaction dates or transfers.
-8. Structured JSON validates shape, not semantic correctness. A schema-compliant amount or category can still be wrong.
-9. Receipt and voice extraction do not detect duplicates before the user creates a transaction.
-10. Category matching does not yet provide ranked alternatives for clarification.
+Implementation status is kept here as the source of truth while the work progresses:
+
+| # | Finding | Status |
+|---|---|---|
+| 1 | Receipt amounts used binary floating point. | **Resolved** — backend and Android use `BigDecimal`. |
+| 2 | Receipt `Unknown` was not schema-valid. | **Resolved** — `UNKNOWN` is always available and maps to a nullable category ID. |
+| 3 | Voice extraction hard-coded VND and defaulted ambiguity to expense. | **Resolved** — extraction uses the user's base currency and preserves `UNKNOWN`. |
+| 4 | Voice categories were not type-safe. | **Resolved** — only income/expense categories are supplied and type compatibility is post-validated. |
+| 5 | AI and client flows depended on category display names. | **Resolved** — owned category IDs are the authoritative value; names are display-only. |
+| 6 | Receipt extraction omitted date/time, currency, subtotal, tax, discount, tip, payment method, and field-level ambiguity. | **Resolved** — typed fields are extracted, returned, reviewed on Android, and contract-tested. |
+| 7 | Voice extraction supported only one transaction and did not model relative dates or transfers. | **Resolved** — batch extraction, relative dates, transfers, sequential review, and explicit wallet selection are implemented. |
+| 8 | Structured JSON validated shape but not semantic correctness. | **Resolved** — deterministic amount, precision, currency, date, category/type, transfer, and receipt-arithmetic validation runs after extraction. |
+| 9 | Receipt and voice extraction did not detect duplicates before transaction creation. | **Resolved** — user-scoped, bounded duplicate candidates are returned before confirmation. |
+| 10 | Category matching did not provide ranked alternatives for clarification. | **Resolved** — up to three owned, type-compatible ID candidates are ranked and displayed. |
 
 ### Adaptivity
 
@@ -106,11 +110,11 @@ References:
 
 ### Testing and observability
 
-1. Receipt tests were previously entirely commented out.
-2. Voice tests covered MIME handling and basic parsing but not currency, type/category compatibility, or ambiguous classifications.
+1. **Resolved:** Receipt service and HTTP contract tests are active and cover both valid and ambiguous extraction results.
+2. **Resolved:** Voice tests cover currency, type/category compatibility, ambiguity, batches, relative dates, transfers, ranked candidates, and duplicates.
 3. Provider calls are not exercised through a deterministic fake server.
-4. There is no controller/security contract coverage for the extraction endpoints.
-5. Android had no receipt/voice DTO or ViewModel tests.
+4. **Partially resolved:** Focused controller JSON contract coverage exists; full authentication-filter integration coverage for these two endpoints is still recommended.
+5. **Partially resolved:** Android DTO/serialization tests cover both extraction contracts; focused Receipt/Voice ViewModel tests are still recommended.
 6. There is no representative evaluation corpus for Vietnamese receipts, speech, currency expressions, or bank notification templates.
 7. There are no quality metrics such as exact amount accuracy, type accuracy, category top-1/top-3 accuracy, clarification rate, duplicate rate, or false auto-save rate.
 8. Operational metrics must be added without logging media, transcripts, full provider payloads, account details, or secrets.
@@ -118,13 +122,13 @@ References:
 ### Android UX and lifecycle
 
 1. Receipt and voice screens contain hard-coded user-visible strings.
-2. Voice originally displayed a hard-coded VND label.
+2. **Resolved:** Voice and receipt review display the currency returned by the authenticated extraction contract.
 3. Voice recording has no maximum duration and can exceed useful/provider limits.
 4. Cached media deletion is incomplete on every lifecycle and failure path.
 5. Camera/audio permanent permission denial needs a route to system settings.
-6. Ambiguous AI output did not have an explicit clarification state.
-7. Category selection relied on names instead of IDs.
-8. Receipt amounts were formatted through integer conversion, losing fractional currency values.
+6. **Resolved:** Receipt and voice review display explicit ambiguity and possible-duplicate warnings.
+7. **Resolved:** Category selection and transaction submission use stable category IDs.
+8. **Resolved:** Receipt amounts preserve decimal values through extraction, display, editing, and submission.
 
 ## First five weaknesses fixed
 
@@ -152,6 +156,26 @@ The JSON changes are additive except for the intended correction from floating-p
 - Voice response adds `currency` and `category_id`.
 - Existing `store_name`, `category`, `amount`, `type`, `note`, and `transcript` names remain available.
 - Voice `type` can now be `UNKNOWN` when clarification is required.
+
+## Remaining contract/correctness fixes implemented
+
+Items 6–10 are implemented as additive extraction fields and deterministic post-processing:
+
+- Receipt responses now include `currency`, `occurred_at`, `subtotal`, `tax`, `discount`, `tip`, `payment_method`, `ambiguities`, `requires_clarification`, ranked `category_candidates`, and `duplicate_candidates`.
+- Receipt totals are checked against `subtotal + tax + tip - discount`. Invalid precision, negative components, impossible dates, currency mismatches, unresolved categories, and arithmetic conflicts are surfaced as field-level ambiguities.
+- Voice structured output is now a batch containing up to ten transactions plus one transcript. Relative dates are resolved against the injected application `Clock`; the backend rejects impossible dates instead of trusting them.
+- Voice transactions model `EXPENSE`, `INCOME`, `TRANSFER`, and `UNKNOWN`. Transfers carry source/destination wallet hints and require explicit owned-wallet selection in Android before saving.
+- Existing top-level voice fields remain populated from the first transaction for backward compatibility; the additive `transactions` array is authoritative for multi-transaction recordings.
+- Duplicate detection queries only the authenticated user's transactions in a bounded date window and returns candidates when amount and type match. It does not silently reject or merge a transaction.
+- Category alternatives are ordered ID-based candidates. The backend removes foreign, nonexistent, type-incompatible, and duplicate IDs before returning them.
+- Android displays ambiguity and duplicate warnings, orders category choices by the ranked candidates, uses extracted dates, reviews multi-transaction recordings sequentially, and supports explicit source/destination wallet selection for transfers.
+
+Verification completed on October 23, 2026:
+
+- Backend focused AI/transaction tests: 24 passed.
+- Backend full suite: 67 passed.
+- Backend Spotless formatting/check: passed.
+- Android unit tests, `lintDebug`, and `assembleDebug`: passed.
 
 ## Recommended layered suggestion engine
 
@@ -308,7 +332,7 @@ Reference: [Google Play User Data policy](https://support.google.com/googleplay/
 
 ### Phase 1: harden current extraction
 
-- Complete the five contract/correctness fixes listed above.
+- [x] Complete all ten contract/correctness fixes listed above.
 - Add HTTP timeouts, safe provider error mapping, bounded retry, and header-based API authentication.
 - Verify file signatures and impose media duration/dimension limits.
 - Move prompts to versioned resources and introduce `AiExtractionClient`.
@@ -318,10 +342,11 @@ Reference: [Google Play User Data policy](https://support.google.com/googleplay/
 ### Phase 2: suggestions and learning
 
 - Add append-only migrations for suggestions, feedback, and categorization rules.
-- Return dates, currencies, ambiguity reasons, and candidate categories.
+- [x] Return dates, currencies, ambiguity reasons, and candidate categories.
 - Add confirmation/rejection/clarification endpoints scoped to the authenticated user.
 - Learn explainable merchant/category rules from confirmed corrections.
-- Add duplicate detection and idempotency.
+- [x] Add pre-confirmation duplicate detection.
+- [ ] Add persisted suggestion idempotency keys and source fingerprints.
 
 ### Phase 3: notification pilot
 

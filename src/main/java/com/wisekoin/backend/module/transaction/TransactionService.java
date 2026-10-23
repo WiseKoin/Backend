@@ -48,7 +48,9 @@ public class TransactionService {
     @Transactional
     public Transaction createTransaction(Long userId, TransactionRequest request) {
         Wallet wallet = getOwnedWallet(userId, request.getWalletId());
-        Category category = resolveCategory(userId, request.getCategoryId(), request.getGoalId());
+        Category category =
+                resolveCategory(
+                        userId, request.getCategoryId(), request.getGoalId(), request.getType());
         Wallet destinationWallet =
                 validateLinks(
                         userId,
@@ -174,7 +176,7 @@ public class TransactionService {
         }
 
         Wallet wallet = getOwnedWallet(userId, walletId);
-        Category category = resolveCategory(userId, categoryId, goalId);
+        Category category = resolveCategory(userId, categoryId, goalId, type);
         Wallet destinationWallet =
                 validateLinks(userId, walletId, type, debtId, goalId, destinationWalletId);
 
@@ -235,7 +237,14 @@ public class TransactionService {
                         () -> new ResourceNotFoundException("Category not found or access denied"));
     }
 
-    private Category resolveCategory(Long userId, Long categoryId, Long goalId) {
+    private Category resolveCategory(
+            Long userId,
+            Long categoryId,
+            Long goalId,
+            Transaction.TransactionType transactionType) {
+        if (transactionType == Transaction.TransactionType.TRANSFER) {
+            return categoryId != null ? getOwnedCategory(userId, categoryId) : null;
+        }
         if (goalId != null) {
             if (categoryId != null) {
                 throw new BadRequestException("Goal funding must not have a category");

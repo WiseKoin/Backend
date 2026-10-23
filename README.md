@@ -71,7 +71,6 @@ and the receiving wallet in `destinationWalletId`:
 {
   "walletId": 1,
   "destinationWalletId": 2,
-  "categoryId": 3,
   "amount": 250000,
   "type": "TRANSFER",
   "note": "Move cash to bank"
@@ -117,10 +116,10 @@ transactions. A day such as `31` is clamped to the last day of shorter months.
 - `POST /api/goals/{id}/fund` — Add funds to a goal
 
 ### Receipts
-- `POST /api/receipts/extract` — Upload a receipt image; returns extracted store, stable `category_id`, category display name, and decimal amount via Gemini AI. An unresolved category has a `null` ID and the display name `Unknown`.
+- `POST /api/receipts/extract` — Upload a receipt image; returns typed receipt facts, decimal amounts, currency/date, payment breakdown, ranked owned-category candidates, field ambiguities, and possible duplicates. An unresolved category has a `null` ID and the display name `Unknown`.
 
 ### Voice
-- `POST /api/voice/extract` — Upload an audio recording; returns decimal amount, the user's base currency, transaction type, stable `category_id`, category display name, note, and transcript via Gemini AI. Ambiguous transaction types are returned as `UNKNOWN` and require user clarification before saving.
+- `POST /api/voice/extract` — Upload an audio recording; returns one transcript and a `transactions` array supporting multiple expenses, income entries, and transfers with resolved relative dates, ranked owned-category candidates, ambiguity metadata, and possible duplicates. Compatibility fields at the response root mirror the first transaction. Ambiguous transaction types are returned as `UNKNOWN` and require user clarification before saving.
 
 See [AI_FEATURE_AUDIT.md](AI_FEATURE_AUDIT.md) for the AI reliability audit, layered suggestion-engine design, and the notification/bank-integration roadmap.
 

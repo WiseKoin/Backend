@@ -11,6 +11,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.wisekoin.backend.module.auth.security.CustomUserDetails;
 import com.wisekoin.backend.module.receipt.dto.ReceiptResponse;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
@@ -44,7 +46,18 @@ class ReceiptControllerTest {
                                 "Neighborhood Market",
                                 7L,
                                 "Groceries",
-                                new BigDecimal("12345.67")));
+                                new BigDecimal("12345.67"),
+                                "VND",
+                                LocalDateTime.of(2026, 10, 22, 9, 30),
+                                new BigDecimal("12000.00"),
+                                new BigDecimal("345.67"),
+                                BigDecimal.ZERO,
+                                BigDecimal.ZERO,
+                                "CARD",
+                                List.of(),
+                                false,
+                                List.of(),
+                                List.of()));
 
         MockMultipartFile file =
                 new MockMultipartFile("file", "receipt.jpg", "image/jpeg", new byte[] {1});
@@ -54,7 +67,11 @@ class ReceiptControllerTest {
                 .andExpect(jsonPath("$.store_name").value("Neighborhood Market"))
                 .andExpect(jsonPath("$.category_id").value(7))
                 .andExpect(jsonPath("$.category").value("Groceries"))
-                .andExpect(jsonPath("$.amount").value(12345.67));
+                .andExpect(jsonPath("$.amount").value(12345.67))
+                .andExpect(jsonPath("$.currency").value("VND"))
+                .andExpect(jsonPath("$.occurred_at").value("2026-10-22T09:30:00"))
+                .andExpect(jsonPath("$.payment_method").value("CARD"))
+                .andExpect(jsonPath("$.requires_clarification").value(false));
     }
 
     private HandlerMethodArgumentResolver authenticatedUser(Long userId) {
