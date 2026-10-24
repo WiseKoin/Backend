@@ -1,7 +1,10 @@
 package com.wisekoin.backend.module.ai.adaptive;
 
 import com.wisekoin.backend.module.ai.dto.AiConfidenceResponse;
+import com.wisekoin.backend.module.ai.dto.AiFieldAmbiguity;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
 
 public record AiExtractionRecordRequest(
         Long userId,
@@ -18,4 +21,8 @@ public record AiExtractionRecordRequest(
         boolean ruleApplied,
         boolean requiresClarification,
         String locale,
-        String timeZone) {}
+        String timeZone,
+        LocalDateTime occurredAt,
+        Long sourceWalletId,
+        Long destinationWalletId,
+        List<AiFieldAmbiguity> ambiguities) {}

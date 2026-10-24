@@ -338,7 +338,11 @@ public class ReceiptService {
                                         ruleApplied,
                                         requiresClarification,
                                         context.localeTag(),
-                                        context.timeZone()));
+                                        context.timeZone(),
+                                        occurredAt,
+                                        null,
+                                        null,
+                                        List.copyOf(ambiguities)));
 
         return new ReceiptResponse(
                 storeName,

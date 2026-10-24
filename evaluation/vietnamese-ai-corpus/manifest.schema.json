@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wisekoin.local/schemas/vietnamese-ai-corpus-v1.json",
+  "title": "WiseKoin Vietnamese AI evaluation corpus",
+  "type": "object",
+  "required": ["corpus_version", "cases"],
+  "properties": {
+    "corpus_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "modality", "locale", "region", "provenance", "input", "expected", "tags", "eligible_metrics"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z0-9-]+$"},
+          "modality": {"enum": ["RECEIPT_IMAGE", "SPEECH", "BANK_NOTIFICATION"]},
+          "locale": {"const": "vi-VN"},
+          "region": {"enum": ["NORTH", "CENTRAL", "SOUTH", "NATIONWIDE"]},
+          "provenance": {
+            "type": "object",
+            "required": ["kind", "deidentified"],
+            "properties": {
+              "kind": {"enum": ["SYNTHETIC", "CONSENTED"]},
+              "deidentified": {"const": true},
+              "consent_record_id": {"type": ["string", "null"]}
+            }
+          },
+          "input": {
+            "type": "object",
+            "required": ["asset", "format", "media_status", "conditions"],
+            "properties": {
+              "asset": {"type": "string"},
+              "transcript_asset": {"type": "string"},
+              "format": {"type": "string"},
+              "media_status": {"enum": ["SYNTHETIC_MEDIA", "TRANSCRIPT_PROXY", "CONSENTED_MEDIA"]},
+              "conditions": {"type": "array", "items": {"type": "string"}}
+            }
+          },
+          "expected": {
+            "type": "object",
+            "required": ["amount", "currency", "type", "requires_clarification"],
+            "properties": {
+              "amount": {"type": ["string", "null"], "pattern": "^[0-9]+(\\.[0-9]{1,4})?$"},
+              "currency": {"type": ["string", "null"], "pattern": "^[A-Z]{3}$"},
+              "type": {"enum": ["EXPENSE", "INCOME", "TRANSFER", "UNKNOWN"]},
+              "requires_clarification": {"type": "boolean"}
+            }
+          },
+          "tags": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+          "eligible_metrics": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+        }
+      }
+    }
+  }
+}

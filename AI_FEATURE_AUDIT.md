@@ -121,7 +121,7 @@ Implementation status for the adaptive layer:
 3. **Resolved:** Provider retries, fallback, API-key placement, safe error mapping, and request shape are exercised through deterministic fake-server tests.
 4. **Partially resolved:** Focused controller JSON contract coverage exists; full authentication-filter integration coverage for these two endpoints is still recommended.
 5. **Partially resolved:** Android DTO/serialization tests cover both extraction contracts; focused Receipt/Voice ViewModel tests are still recommended.
-6. There is no representative evaluation corpus for Vietnamese receipts, speech, currency expressions, or bank notification templates.
+6. **Partially resolved:** A versioned synthetic/de-identified seed corpus now covers Vietnamese receipts, regional currency expressions, synthetic M4A speech (including noise and self-correction), adversarial text, and representative synthetic bank-notification templates. Consented human regional/noisy recordings are still required before acoustic release thresholds can be claimed.
 7. There are no quality metrics such as exact amount accuracy, type accuracy, category top-1/top-3 accuracy, clarification rate, duplicate rate, or false auto-save rate.
 8. Operational metrics must be added without logging media, transcripts, full provider payloads, account details, or secrets.
 
@@ -244,10 +244,10 @@ With contract/correctness, adaptivity, and the listed reliability/security findi
 
 1. Add authentication-filter integration tests for both extraction endpoints: missing/invalid JWT, authenticated success, user isolation, multipart rejection, and 409 replay behavior through the real security chain.
 2. Add focused Android Receipt/Voice ViewModel tests for upload failure, cancellation, duplicate responses, automatic duration stop, sequential batch review, and cache-file cleanup. Move remaining AI-screen strings into resources and add the permanent-denial route to system settings.
-3. Build a consented, de-identified Vietnamese evaluation corpus covering receipts, regional speech/currency expressions, noisy audio, adversarial text, and representative bank-notification templates. Keep it out of production logs and normal source fixtures when it contains sensitive data.
+3. **Seed corpus complete:** Maintain and expand the de-identified Vietnamese corpus under `evaluation/vietnamese-ai-corpus`; add access-controlled, consented human regional/noisy speech before setting acoustic release thresholds. Production logs and sensitive media remain prohibited as corpus sources.
 4. Define release thresholds and measure exact amount/currency/type accuracy, category top-1/top-3 accuracy, clarification rate, duplicate false-positive rate, and false balance-change rate by prompt/model version.
 5. Add privacy-safe operational metrics for provider latency, retries, circuit state, validation failures, ambiguity reasons, duplicate conflicts, and manual fallback. Do not label metrics with media, transcript, merchant, account, idempotency key, or user identifiers.
-6. Complete pending-suggestion confirmation/rejection/clarification APIs before beginning the opt-in bank-notification pilot. Automatic transaction creation remains out of scope until the release gates below are met.
+6. **Completed:** Pending-suggestion read/list, confirmation, rejection, and clarification APIs are user-scoped and audited. Confirmation delegates to the existing transactional creation path. Automatic transaction creation remains out of scope until the release gates below are met.
 
 ## Recommended layered suggestion engine
 
@@ -415,7 +415,7 @@ Reference: [Google Play User Data policy](https://support.google.com/googleplay/
 
 - [x] Add append-only migrations for extraction feedback, categorization rules, and ingestion request metadata.
 - [x] Return dates, currencies, ambiguity reasons, and candidate categories.
-- Add confirmation/rejection/clarification endpoints scoped to the authenticated user.
+- [x] Add confirmation/rejection/clarification endpoints scoped to the authenticated user.
 - [x] Learn explainable merchant/category rules from confirmed corrections.
 - [x] Add pre-confirmation duplicate detection.
 - [x] Add persisted extraction idempotency keys and source fingerprints.

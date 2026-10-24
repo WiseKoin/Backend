@@ -94,7 +94,8 @@ public class TransactionService {
                 request.getAiExtractionId(),
                 request.getCategoryId(),
                 request.getType(),
-                request.isRememberAiCategory());
+                request.isRememberAiCategory(),
+                savedTransaction.getId());
 
         eventPublisher.publishEvent(
                 new TransactionCreatedEvent(

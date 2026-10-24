@@ -1,0 +1,12 @@
+{
+  "consent_record_id": "consent-random-id-held-in-restricted-store",
+  "subject_key": "random-corpus-subject-key",
+  "consent_version": "wisekoin-ai-evaluation-v1",
+  "consented_at": "2026-10-24T00:00:00Z",
+  "allowed_uses": ["offline_model_evaluation"],
+  "allows_internal_human_review": false,
+  "withdrawal_channel": "privacy-contact-configured-outside-source-control",
+  "retention_until": "2027-10-24",
+  "deidentification_reviewed_by": "second-reviewer-record-held-outside-source-control",
+  "media_storage": "restricted-store-reference-not-a-local-path"
+}

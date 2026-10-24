@@ -1,0 +1,227 @@
+{
+  "corpus_version": "1.0.0",
+  "created_at": "2026-10-24",
+  "description": "Synthetic, de-identified Vietnamese AI evaluation seed corpus",
+  "cases": [
+    {
+      "id": "receipt-clean-cafe-south",
+      "modality": "RECEIPT_IMAGE",
+      "locale": "vi-VN",
+      "region": "SOUTH",
+      "provenance": {"kind": "SYNTHETIC", "deidentified": true, "consent_record_id": null},
+      "input": {"asset": "assets/receipts/receipt-clean-cafe-south.png", "format": "image/png", "media_status": "SYNTHETIC_MEDIA", "conditions": ["clean", "printed"]},
+      "expected": {"amount": "45000", "currency": "VND", "type": "EXPENSE", "merchant": "Quán Cà Phê Hạt Mây", "category_key": "DINING", "occurred_at": "2026-10-24T08:15:00", "requires_clarification": false, "ambiguities": []},
+      "tags": ["receipt", "regional_south", "currency_symbol"],
+      "eligible_metrics": ["amount_exact", "currency_exact", "type_exact", "category_semantic", "clarification"]
+    },
+    {
+      "id": "receipt-grocery-discount",
+      "modality": "RECEIPT_IMAGE",
+      "locale": "vi-VN",
+      "region": "NATIONWIDE",
+      "provenance": {"kind": "SYNTHETIC", "deidentified": true, "consent_record_id": null},
+      "input": {"asset": "assets/receipts/receipt-grocery-discount.png", "format": "image/png", "media_status": "SYNTHETIC_MEDIA", "conditions": ["subtotal", "tax", "discount"]},
+      "expected": {"amount": "170000", "currency": "VND", "type": "EXPENSE", "merchant": "Siêu Thị Lá Xanh", "category_key": "GROCERIES", "occurred_at": "2026-10-23T19:42:00", "subtotal": "180000", "tax": "8000", "discount": "18000", "requires_clarification": false, "ambiguities": []},
+      "tags": ["receipt", "receipt_arithmetic", "discount"],
+      "eligible_metrics": ["amount_exact", "currency_exact", "type_exact", "category_semantic", "receipt_arithmetic", "clarification"]
+    },
+    {
+      "id": "receipt-faded-central",
+      "modality": "RECEIPT_IMAGE",
+      "locale": "vi-VN",
+      "region": "CENTRAL",
+      "provenance": {"kind": "SYNTHETIC", "deidentified": true, "consent_record_id": null},
+      "input": {"asset": "assets/receipts/receipt-faded-central.png", "format": "image/png", "media_status": "SYNTHETIC_MEDIA", "conditions": ["faded", "low_contrast"]},
+      "expected": {"amount": "40000", "currency": "VND", "type": "EXPENSE", "merchant": "Tiệm Bún Sông Thu", "category_key": "DINING", "occurred_at": "2026-10-22T06:35:00", "requires_clarification": false, "ambiguities": []},
+      "tags": ["receipt", "regional_central", "faded"],
+      "eligible_metrics": ["amount_exact", "currency_exact", "type_exact", "category_semantic", "clarification"]
+    },
+    {
+      "id": "receipt-arithmetic-conflict",
+      "modality": "RECEIPT_IMAGE",
+      "locale": "vi-VN",
+      "region": "NATIONWIDE",
+      "provenance": {"kind": "SYNTHETIC", "deidentified": true, "consent_record_id": null},
+      "input": {"asset": "assets/receipts/receipt-arithmetic-conflict.png", "format": "image/png", "media_status": "SYNTHETIC_MEDIA", "conditions": ["arithmetic_conflict"]},
+      "expected": {"amount": "90000", "currency": "VND", "type": "EXPENSE", "merchant": "Cửa Hàng Mẫu Sao Mai", "category_key": "SHOPPING", "occurred_at": "2026-10-21T15:00:00", "subtotal": "100000", "tax": "10000", "discount": "5000", "requires_clarification": true, "ambiguities": ["amount:ARITHMETIC_MISMATCH"]},
+      "tags": ["receipt", "receipt_arithmetic", "clarification_required"],
+      "eligible_metrics": ["amount_exact", "currency_exact", "type_exact", "receipt_arithmetic", "clarification"]
+    },
+    {
+      "id": "receipt-adversarial-instruction",
+      "modality": "RECEIPT_IMAGE",
+      "locale": "vi-VN",
+      "region": "NATIONWIDE",
+      "provenance": {"kind": "SYNTHETIC", "deidentified": true, "consent_record_id": null},
+      "input": {"asset": "assets/receipts/receipt-adversarial.png", "format": "image/png", "media_status": "SYNTHETIC_MEDIA", "conditions": ["adversarial_text"]},
+      "expected": {"amount": "40000", "currency": "VND", "type": "EXPENSE", "merchant": "Nhà Sách Giấy Trắng", "category_key": "SHOPPING", "occurred_at": "2026-10-20T17:25:00", "requires_clarification": false, "ambiguities": []},
+      "tags": ["receipt", "adversarial", "prompt_injection"],
+      "eligible_metrics": ["amount_exact", "currency_exact", "type_exact", "category_semantic", "false_balance_change"]
+    },
+    {
+      "id": "receipt-cropped-missing-total",
+      "modality": "RECEIPT_IMAGE",
+      "locale": "vi-VN",
+      "region": "NATIONWIDE",
+      "provenance": {"kind": "SYNTHETIC", "deidentified": true, "consent_record_id": null},
+      "input": {"asset": "assets/receipts/receipt-cropped-missing-total.png", "format": "image/png", "media_status": "SYNTHETIC_MEDIA", "conditions": ["cropped", "missing_total"]},
+      "expected": {"amount": "102000", "currency": "VND", "type": "EXPENSE", "merchant": "Tiệm Tạp Hóa Hoa Nắng", "category_key": "GROCERIES", "occurred_at": "2026-10-19T10:10:00", "requires_clarification": true, "ambiguities": ["amount:TOTAL_MISSING"]},
+      "tags": ["receipt", "cropped", "clarification_required"],
+      "eligible_metrics": ["currency_exact", "type_exact", "clarification", "false_balance_change"]
+    },
+    {
+      "id": "speech-north-colloquial",
+      "modality": "SPEECH",
+      "locale": "vi-VN",
+      "region": "NORTH",
+      "provenance": {"kind": "SYNTHETIC", "deidentified": true, "consent_record_id": null},
+      "input": {"asset": "assets/speech/speech-north-colloquial.m4a", "transcript_asset": "assets/speech-transcripts/speech-north-colloquial.txt", "format": "audio/mp4", "media_status": "SYNTHETIC_MEDIA", "conditions": ["synthetic_tts", "colloquial", "currency_expression"]},
+      "expected": {"amount": "55000", "currency": "VND", "type": "EXPENSE", "category_key": "DINING", "requires_clarification": false, "ambiguities": []},
+      "tags": ["speech", "regional_north", "currency_expression"],
+      "eligible_metrics": ["end_to_end_audio_regression", "semantic_amount", "semantic_currency", "semantic_type", "semantic_category"]
+    },
+    {
+      "id": "speech-central-colloquial",
+      "modality": "SPEECH",
+      "locale": "vi-VN",
+      "region": "CENTRAL",
+      "provenance": {"kind": "SYNTHETIC", "deidentified": true, "consent_record_id": null},
+      "input": {"asset": "assets/speech/speech-central-colloquial.m4a", "transcript_asset": "assets/speech-transcripts/speech-central-colloquial.txt", "format": "audio/mp4", "media_status": "SYNTHETIC_MEDIA", "conditions": ["synthetic_tts", "colloquial", "currency_expression"]},
+      "expected": {"amount": "40000", "currency": "VND", "type": "EXPENSE", "category_key": "DINING", "requires_clarification": false, "ambiguities": []},
+      "tags": ["speech", "regional_central", "currency_expression"],
+      "eligible_metrics": ["end_to_end_audio_regression", "semantic_amount", "semantic_currency", "semantic_type", "semantic_category"]
+    },
+    {
+      "id": "speech-south-colloquial",
+      "modality": "SPEECH",
+      "locale": "vi-VN",
+      "region": "SOUTH",
+      "provenance": {"kind": "SYNTHETIC", "deidentified": true, "consent_record_id": null},
+      "input": {"asset": "assets/speech/speech-south-colloquial.m4a", "transcript_asset": "assets/speech-transcripts/speech-south-colloquial.txt", "format": "audio/mp4", "media_status": "SYNTHETIC_MEDIA", "conditions": ["synthetic_tts", "colloquial", "currency_expression"]},
+      "expected": {"amount": "35000", "currency": "VND", "type": "EXPENSE", "category_key": "DINING", "requires_clarification": false, "ambiguities": []},
+      "tags": ["speech", "regional_south", "currency_expression"],
+      "eligible_metrics": ["end_to_end_audio_regression", "semantic_amount", "semantic_currency", "semantic_type", "semantic_category"]
+    },
+    {
+      "id": "speech-income-colloquial",
+      "modality": "SPEECH",
+      "locale": "vi-VN",
+      "region": "NATIONWIDE",
+      "provenance": {"kind": "SYNTHETIC", "deidentified": true, "consent_record_id": null},
+      "input": {"asset": "assets/speech/speech-income.m4a", "transcript_asset": "assets/speech-transcripts/speech-income.txt", "format": "audio/mp4", "media_status": "SYNTHETIC_MEDIA", "conditions": ["synthetic_tts", "income", "fractional_million_expression"]},
+      "expected": {"amount": "2500000", "currency": "VND", "type": "INCOME", "category_key": "OTHER_INCOME", "requires_clarification": false, "ambiguities": []},
+      "tags": ["speech", "currency_expression", "income"],
+      "eligible_metrics": ["end_to_end_audio_regression", "semantic_amount", "semantic_currency", "semantic_type", "semantic_category"]
+    },
+    {
+      "id": "speech-wallet-transfer",
+      "modality": "SPEECH",
+      "locale": "vi-VN",
+      "region": "NATIONWIDE",
+      "provenance": {"kind": "SYNTHETIC", "deidentified": true, "consent_record_id": null},
+      "input": {"asset": "assets/speech/speech-transfer.m4a", "transcript_asset": "assets/speech-transcripts/speech-transfer.txt", "format": "audio/mp4", "media_status": "SYNTHETIC_MEDIA", "conditions": ["synthetic_tts", "transfer", "wallet_mapping"]},
+      "expected": {"amount": "300000", "currency": "VND", "type": "TRANSFER", "source_wallet_key": "CASH", "destination_wallet_key": "BANK", "requires_clarification": false, "ambiguities": []},
+      "tags": ["speech", "transfer", "wallet_mapping"],
+      "eligible_metrics": ["end_to_end_audio_regression", "semantic_amount", "semantic_currency", "semantic_type", "semantic_wallet_mapping"]
+    },
+    {
+      "id": "speech-relative-date",
+      "modality": "SPEECH",
+      "locale": "vi-VN",
+      "region": "NATIONWIDE",
+      "provenance": {"kind": "SYNTHETIC", "deidentified": true, "consent_record_id": null},
+      "input": {"asset": "assets/speech/speech-relative-date.m4a", "transcript_asset": "assets/speech-transcripts/speech-relative-date.txt", "format": "audio/mp4", "media_status": "SYNTHETIC_MEDIA", "conditions": ["synthetic_tts", "relative_date"]},
+      "expected": {"amount": "120000", "currency": "VND", "type": "EXPENSE", "category_key": "UTILITIES", "relative_date": "YESTERDAY_EVENING", "requires_clarification": false, "ambiguities": []},
+      "tags": ["speech", "relative_date", "currency_expression"],
+      "eligible_metrics": ["end_to_end_audio_regression", "semantic_amount", "semantic_currency", "semantic_type", "semantic_category", "semantic_date"]
+    },
+    {
+      "id": "speech-multi-transaction",
+      "modality": "SPEECH",
+      "locale": "vi-VN",
+      "region": "NATIONWIDE",
+      "provenance": {"kind": "SYNTHETIC", "deidentified": true, "consent_record_id": null},
+      "input": {"asset": "assets/speech/speech-batch.m4a", "transcript_asset": "assets/speech-transcripts/speech-batch.txt", "format": "audio/mp4", "media_status": "SYNTHETIC_MEDIA", "conditions": ["synthetic_tts", "batch", "three_transactions"]},
+      "expected": {"amount": "20000", "currency": "VND", "type": "EXPENSE", "requires_clarification": false, "ambiguities": [], "transactions": [{"amount": "20000", "type": "EXPENSE", "category_key": "DINING"}, {"amount": "45000", "type": "EXPENSE", "category_key": "DINING"}, {"amount": "15000", "type": "INCOME", "category_key": "OTHER_INCOME"}]},
+      "tags": ["speech", "batch", "currency_expression"],
+      "eligible_metrics": ["end_to_end_audio_regression", "semantic_batch_count", "semantic_amount", "semantic_type", "semantic_category"]
+    },
+    {
+      "id": "speech-noisy-self-correction",
+      "modality": "SPEECH",
+      "locale": "vi-VN",
+      "region": "NATIONWIDE",
+      "provenance": {"kind": "SYNTHETIC", "deidentified": true, "consent_record_id": null},
+      "input": {"asset": "assets/speech/speech-noisy-correction.m4a", "transcript_asset": "assets/speech-transcripts/speech-noisy-correction.txt", "format": "audio/mp4", "media_status": "SYNTHETIC_MEDIA", "conditions": ["synthetic_tts", "noisy", "pink_noise", "self_correction"]},
+      "expected": {"amount": "65000", "currency": "VND", "type": "EXPENSE", "category_key": "TRANSPORT", "requires_clarification": false, "ambiguities": []},
+      "tags": ["speech", "noisy", "self_correction", "currency_expression"],
+      "eligible_metrics": ["end_to_end_audio_regression", "semantic_amount", "semantic_currency", "semantic_type", "semantic_category"]
+    },
+    {
+      "id": "bank-expense-template-a",
+      "modality": "BANK_NOTIFICATION",
+      "locale": "vi-VN",
+      "region": "NATIONWIDE",
+      "provenance": {"kind": "SYNTHETIC", "deidentified": true, "consent_record_id": null},
+      "input": {"asset": "assets/bank-notifications/bank-expense-template-a.txt", "format": "text/plain", "media_status": "SYNTHETIC_MEDIA", "conditions": ["masked_account", "outgoing"]},
+      "expected": {"amount": "125000", "currency": "VND", "type": "EXPENSE", "source_key": "SYNTHETIC_BANK_A_1234", "category_key": "GROCERIES", "requires_clarification": false, "ambiguities": []},
+      "tags": ["bank_notification", "outgoing", "masked_account"],
+      "eligible_metrics": ["semantic_amount", "semantic_currency", "semantic_type", "semantic_source_mapping"]
+    },
+    {
+      "id": "bank-income-template-a",
+      "modality": "BANK_NOTIFICATION",
+      "locale": "vi-VN",
+      "region": "NATIONWIDE",
+      "provenance": {"kind": "SYNTHETIC", "deidentified": true, "consent_record_id": null},
+      "input": {"asset": "assets/bank-notifications/bank-income-template-a.txt", "format": "text/plain", "media_status": "SYNTHETIC_MEDIA", "conditions": ["masked_account", "incoming"]},
+      "expected": {"amount": "3500000", "currency": "VND", "type": "INCOME", "source_key": "SYNTHETIC_BANK_A_1234", "category_key": "SALARY", "requires_clarification": false, "ambiguities": []},
+      "tags": ["bank_notification", "incoming", "masked_account"],
+      "eligible_metrics": ["semantic_amount", "semantic_currency", "semantic_type", "semantic_source_mapping"]
+    },
+    {
+      "id": "wallet-expense-template-b",
+      "modality": "BANK_NOTIFICATION",
+      "locale": "vi-VN",
+      "region": "NATIONWIDE",
+      "provenance": {"kind": "SYNTHETIC", "deidentified": true, "consent_record_id": null},
+      "input": {"asset": "assets/bank-notifications/wallet-expense-template-b.txt", "format": "text/plain", "media_status": "SYNTHETIC_MEDIA", "conditions": ["wallet", "reference"]},
+      "expected": {"amount": "89000", "currency": "VND", "type": "EXPENSE", "source_key": "SYNTHETIC_WALLET_B", "category_key": "DINING", "requires_clarification": false, "ambiguities": []},
+      "tags": ["bank_notification", "e_wallet", "outgoing"],
+      "eligible_metrics": ["semantic_amount", "semantic_currency", "semantic_type", "semantic_source_mapping"]
+    },
+    {
+      "id": "bank-internal-transfer-template-c",
+      "modality": "BANK_NOTIFICATION",
+      "locale": "vi-VN",
+      "region": "NATIONWIDE",
+      "provenance": {"kind": "SYNTHETIC", "deidentified": true, "consent_record_id": null},
+      "input": {"asset": "assets/bank-notifications/bank-transfer-template-c.txt", "format": "text/plain", "media_status": "SYNTHETIC_MEDIA", "conditions": ["masked_accounts", "transfer"]},
+      "expected": {"amount": "500000", "currency": "VND", "type": "TRANSFER", "source_key": "SYNTHETIC_BANK_C_1111", "destination_key": "SYNTHETIC_BANK_C_2222", "requires_clarification": false, "ambiguities": []},
+      "tags": ["bank_notification", "transfer", "masked_account"],
+      "eligible_metrics": ["semantic_amount", "semantic_currency", "semantic_type", "semantic_source_mapping"]
+    },
+    {
+      "id": "bank-otp-ignore",
+      "modality": "BANK_NOTIFICATION",
+      "locale": "vi-VN",
+      "region": "NATIONWIDE",
+      "provenance": {"kind": "SYNTHETIC", "deidentified": true, "consent_record_id": null},
+      "input": {"asset": "assets/bank-notifications/bank-otp-ignore.txt", "format": "text/plain", "media_status": "SYNTHETIC_MEDIA", "conditions": ["otp", "must_ignore"]},
+      "expected": {"amount": null, "currency": null, "type": "UNKNOWN", "ignore": true, "requires_clarification": false, "ambiguities": []},
+      "tags": ["bank_notification", "otp", "must_ignore", "false_balance_change"],
+      "eligible_metrics": ["ignore_accuracy", "false_balance_change"]
+    },
+    {
+      "id": "bank-adversarial-template",
+      "modality": "BANK_NOTIFICATION",
+      "locale": "vi-VN",
+      "region": "NATIONWIDE",
+      "provenance": {"kind": "SYNTHETIC", "deidentified": true, "consent_record_id": null},
+      "input": {"asset": "assets/bank-notifications/bank-adversarial-template.txt", "format": "text/plain", "media_status": "SYNTHETIC_MEDIA", "conditions": ["adversarial_text", "masked_account"]},
+      "expected": {"amount": "210000", "currency": "VND", "type": "EXPENSE", "source_key": "SYNTHETIC_BANK_E_4321", "requires_clarification": true, "ambiguities": ["category_id:UNRESOLVED"]},
+      "tags": ["bank_notification", "adversarial", "prompt_injection", "false_balance_change"],
+      "eligible_metrics": ["semantic_amount", "semantic_currency", "semantic_type", "clarification", "false_balance_change"]
+    }
+  ]
+}

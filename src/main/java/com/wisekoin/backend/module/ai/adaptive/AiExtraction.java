@@ -10,6 +10,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -51,6 +52,21 @@ public class AiExtraction {
 
     @Column(length = 3)
     private String currency;
+
+    @Column(name = "occurred_at")
+    private LocalDateTime occurredAt;
+
+    @Column(name = "source_wallet_id")
+    private Long sourceWalletId;
+
+    @Column(name = "destination_wallet_id")
+    private Long destinationWalletId;
+
+    @Column(name = "ambiguity_reasons", nullable = false, length = 1000)
+    private String ambiguityReasons;
+
+    @Column(nullable = false)
+    private boolean clarified;
 
     @Column(name = "prompt_version", nullable = false, length = 100)
     private String promptVersion;
@@ -96,4 +112,16 @@ public class AiExtraction {
 
     @Column(name = "confirmed_at")
     private Instant confirmedAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+
+    @Column(name = "rejected_at")
+    private Instant rejectedAt;
+
+    @Column(name = "rejection_reason", length = 30)
+    private String rejectionReason;
+
+    @Column(name = "transaction_id")
+    private Long transactionId;
 }

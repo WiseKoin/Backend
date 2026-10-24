@@ -69,7 +69,12 @@ class TransactionServiceTest {
         assertEquals(Transaction.TransactionType.TRANSFER, transaction.getType());
         verify(aiAdaptationService)
                 .confirmExtraction(
-                        42L, extractionId, null, Transaction.TransactionType.TRANSFER, false);
+                        42L,
+                        extractionId,
+                        null,
+                        Transaction.TransactionType.TRANSFER,
+                        false,
+                        transaction.getId());
     }
 
     private Wallet wallet(Long id, User user) {

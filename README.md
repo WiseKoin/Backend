@@ -115,6 +115,18 @@ transactions. A day such as `31` is clamped to the last day of shorter months.
 
 When a transaction is created from an AI suggestion, send its `aiExtractionId` in the normal transaction request. Set `rememberAiCategory=true` only after an explicit user opt-in; this stores the confirmation feedback and updates that user's normalized merchant/category rule. Raw images, audio, transcripts, and provider payloads are not stored by the adaptive layer.
 
+### AI suggestions
+
+- `GET /api/ai/suggestions?status=PENDING&page=0&size=20` — List only the authenticated user's pending, confirmed, or rejected suggestions.
+- `GET /api/ai/suggestions/{id}` — Read one owned suggestion and its lifecycle state.
+- `PATCH /api/ai/suggestions/{id}/clarification` — Persist corrected typed fields without changing balances. Omitted fields remain unchanged; nullable category/date/wallet/merchant fields may be explicitly cleared. Set `acknowledgePossibleDuplicate=true` only after explicit review.
+- `POST /api/ai/suggestions/{id}/confirmation` — Confirm the current suggestion and create a transaction through the normal transactional service. Request fields are optional overrides; a wallet and a resolved type/amount/category (or two wallets for a transfer) must be available after merging.
+- `POST /api/ai/suggestions/{id}/rejection` — Reject a pending suggestion with `DUPLICATE`, `INCORRECT`, `NOT_RELEVANT`, `PRIVACY`, or `OTHER`.
+
+All suggestion lookups and referenced wallet/category IDs are user-scoped. Concurrent terminal actions are serialized by a database write lock. Clarification and rejection actions are append-only audit records and deliberately exclude media, transcripts, free-form notes, and provider payloads. Existing clients may continue confirming through `POST /api/transactions` with `aiExtractionId`; the dedicated confirmation endpoint is additive.
+
+The synthetic/de-identified Vietnamese seed corpus and its privacy/metric rules live in [`evaluation/vietnamese-ai-corpus`](evaluation/vietnamese-ai-corpus). It contains deterministic receipt images, synthetic M4A speech with transcript sidecars, and synthetic bank-notification templates. Synthetic speech is for regression coverage and cannot satisfy representative human-speech release thresholds.
+
 See [AI_FEATURE_AUDIT.md](AI_FEATURE_AUDIT.md) for the AI reliability audit, layered suggestion-engine design, and the notification/bank-integration roadmap.
 
 ## API Base URL

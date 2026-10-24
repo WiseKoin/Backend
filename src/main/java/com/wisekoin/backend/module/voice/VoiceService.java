@@ -490,7 +490,11 @@ public class VoiceService {
                                         ruleApplied,
                                         requiresClarification,
                                         adaptiveContext.context().localeTag(),
-                                        adaptiveContext.context().timeZone()));
+                                        adaptiveContext.context().timeZone(),
+                                        occurredAt,
+                                        sourceWalletId,
+                                        destinationWalletId,
+                                        List.copyOf(ambiguities)));
 
         return new VoiceTransactionResponse(
                 extraction.amount(),

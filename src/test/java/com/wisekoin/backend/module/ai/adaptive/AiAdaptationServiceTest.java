@@ -66,7 +66,8 @@ class AiAdaptationServiceTest {
                         42L, "ca phe sua da", "EXPENSE"))
                 .thenReturn(Optional.empty());
 
-        service.confirmExtraction(42L, extractionId, 8L, Transaction.TransactionType.EXPENSE, true);
+        service.confirmExtraction(
+                42L, extractionId, 8L, Transaction.TransactionType.EXPENSE, true, 101L);
 
         ArgumentCaptor<AiFeedback> feedbackCaptor = ArgumentCaptor.forClass(AiFeedback.class);
         verify(feedbackRepository).save(feedbackCaptor.capture());
@@ -92,7 +93,12 @@ class AiAdaptationServiceTest {
                 ResourceNotFoundException.class,
                 () ->
                         service.confirmExtraction(
-                                42L, extractionId, 8L, Transaction.TransactionType.EXPENSE, true));
+                                42L,
+                                extractionId,
+                                8L,
+                                Transaction.TransactionType.EXPENSE,
+                                true,
+                                101L));
     }
 
     private AiExtraction extraction() {

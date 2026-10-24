@@ -1,5 +1,6 @@
 package com.wisekoin.backend.module.ai.adaptive;
 
+import com.wisekoin.backend.module.ai.dto.AiFieldAmbiguity;
 import com.wisekoin.backend.module.category.Category;
 import com.wisekoin.backend.module.category.CategoryRepository;
 import com.wisekoin.backend.module.common.exception.BadRequestException;
@@ -92,6 +93,11 @@ public class AiAdaptationService {
         extraction.setTransactionType(limit(request.transactionType(), 20));
         extraction.setAmount(request.amount());
         extraction.setCurrency(limit(request.currency(), 3));
+        extraction.setOccurredAt(request.occurredAt());
+        extraction.setSourceWalletId(request.sourceWalletId());
+        extraction.setDestinationWalletId(request.destinationWalletId());
+        extraction.setAmbiguityReasons(formatAmbiguities(request.ambiguities()));
+        extraction.setClarified(false);
         extraction.setPromptVersion(limit(request.promptVersion(), 100));
         extraction.setModelVersion(limit(request.modelVersion(), 150));
         extraction.setProvider(limit(request.provider(), 50));
@@ -107,6 +113,7 @@ public class AiAdaptationService {
         extraction.setTimeZone(limit(request.timeZone(), 100));
         extraction.setStatus("PENDING");
         extraction.setCreatedAt(now);
+        extraction.setUpdatedAt(now);
         return extractionRepository.save(extraction).getId();
     }
 
@@ -116,7 +123,8 @@ public class AiAdaptationService {
             UUID extractionId,
             Long confirmedCategoryId,
             Transaction.TransactionType confirmedType,
-            boolean rememberRule) {
+            boolean rememberRule,
+            Long transactionId) {
         if (extractionId == null) {
             return;
         }
@@ -128,7 +136,7 @@ public class AiAdaptationService {
                                         new ResourceNotFoundException(
                                                 "AI extraction suggestion not found"));
         if (!"PENDING".equals(extraction.getStatus())) {
-            throw new BadRequestException("AI extraction suggestion was already confirmed");
+            throw new BadRequestException("AI suggestion is no longer pending");
         }
 
         Category confirmedCategory =
@@ -151,7 +159,9 @@ public class AiAdaptationService {
         feedback.setConfirmedCategoryId(confirmedCategoryId);
         feedback.setConfirmedTransactionType(confirmedType.name());
         feedback.setOutcome(
-                Objects.equals(extraction.getProposedCategoryId(), confirmedCategoryId)
+                !extraction.isClarified()
+                                && Objects.equals(
+                                        extraction.getProposedCategoryId(), confirmedCategoryId)
                                 && extraction.getTransactionType().equals(confirmedType.name())
                         ? "ACCEPTED"
                         : "CORRECTED");
@@ -174,6 +184,8 @@ public class AiAdaptationService {
         }
         extraction.setStatus("CONFIRMED");
         extraction.setConfirmedAt(now);
+        extraction.setUpdatedAt(now);
+        extraction.setTransactionId(transactionId);
     }
 
     private void upsertRule(
@@ -233,5 +245,22 @@ public class AiAdaptationService {
         }
         String trimmed = value.trim();
         return trimmed.substring(0, Math.min(trimmed.length(), length));
+    }
+
+    private String formatAmbiguities(List<AiFieldAmbiguity> ambiguities) {
+        if (ambiguities == null) {
+            return "";
+        }
+        return limit(
+                ambiguities.stream()
+                        .filter(
+                                ambiguity ->
+                                        ambiguity != null
+                                                && ambiguity.field() != null
+                                                && ambiguity.code() != null)
+                        .map(ambiguity -> ambiguity.field() + ":" + ambiguity.code())
+                        .distinct()
+                        .collect(Collectors.joining(",")),
+                1000);
     }
 }
