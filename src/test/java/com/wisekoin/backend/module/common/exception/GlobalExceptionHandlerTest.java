@@ -2,11 +2,14 @@ package com.wisekoin.backend.module.common.exception;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.mockito.Mockito.mockStatic;
 
+import io.sentry.Sentry;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
@@ -38,15 +41,18 @@ class GlobalExceptionHandlerTest {
     @Test
     void unexpectedFailuresDoNotExposeInternalDetails() {
         GlobalExceptionHandler handler = new GlobalExceptionHandler();
+        RuntimeException exception =
+                new RuntimeException("SQL constraint users_password leaked-secret");
 
-        ResponseEntity<Map<String, String>> response =
-                handler.handleGeneric(
-                        new RuntimeException("SQL constraint users_password leaked-secret"));
+        try (MockedStatic<Sentry> sentry = mockStatic(Sentry.class)) {
+            ResponseEntity<Map<String, String>> response = handler.handleGeneric(exception);
 
-        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-        assertEquals(
-                Map.of("error", "An unexpected error occurred. Please try again later."),
-                response.getBody());
+            assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals(
+                    Map.of("error", "An unexpected error occurred. Please try again later."),
+                    response.getBody());
+            sentry.verify(() -> Sentry.captureException(exception));
+        }
     }
 
     @Test
@@ -67,13 +73,16 @@ class GlobalExceptionHandlerTest {
     @Test
     void mediaIoFailureHasStableSafeResponse() {
         GlobalExceptionHandler handler = new GlobalExceptionHandler();
+        IOException exception = new IOException("temporary-file-secret");
 
-        ResponseEntity<Map<String, String>> response =
-                handler.handleMediaProcessing(new IOException("temporary-file-secret"));
+        try (MockedStatic<Sentry> sentry = mockStatic(Sentry.class)) {
+            ResponseEntity<Map<String, String>> response = handler.handleMediaProcessing(exception);
 
-        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-        assertEquals("MEDIA_PROCESSING_FAILED", response.getBody().get("code"));
-        assertFalse(response.getBody().toString().contains("temporary-file-secret"));
+            assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("MEDIA_PROCESSING_FAILED", response.getBody().get("code"));
+            assertFalse(response.getBody().toString().contains("temporary-file-secret"));
+            sentry.verify(() -> Sentry.captureException(exception));
+        }
     }
 
     @Test

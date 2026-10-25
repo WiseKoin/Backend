@@ -18,6 +18,7 @@ Spring Boot REST API for the WiseKoin financial management application.
 - **ORM:** Spring Data JPA + Hibernate
 - **AI Service:** Google Gemini 3.1 Flash Lite (via AI Studio)
 - **API Docs:** SpringDoc OpenAPI 3.1.0 (Swagger UI)
+- **Observability:** Sentry error monitoring and request tracing
 - **Build Tool:** Maven
 
 ## REST API Endpoints
@@ -153,6 +154,10 @@ Create a `.env` file in the project root with the following variables:
 DB_URL=jdbc:postgresql://host:port/dbname?sslmode=require
 DB_USERNAME=your_db_user
 DB_PASSWORD=your_db_password
+SENTRY_DSN=your_wisekoin_backend_project_dsn
+SENTRY_ENVIRONMENT=production
+SENTRY_RELEASE=wisekoin-backend@your-deploy-version
+SENTRY_TRACES_SAMPLE_RATE=0.1
 JWT_SECRET=your_jwt_secret_min_256_bits
 JWT_EXPIRATION=900000
 JWT_REFRESH_EXPIRATION=2592000000
@@ -215,6 +220,20 @@ one-time `verificationToken` together with the current password to the sensitive
 Codes and verification tokens are hashed in the database and are never logged.
 
 > **Note:** The `.env` file is not committed to version control. Copy `.env.example` if available.
+
+### Sentry monitoring
+
+The backend uses Sentry's Spring Boot 4 integration. It remains inactive when
+`SENTRY_DSN` is unset. Use the DSN for the `wisekoin-backend` Sentry project and set a
+unique `SENTRY_RELEASE` for each deployed image (for example, the Git commit SHA).
+Development Compose captures all request traces by default; production defaults to a
+10% trace sample rate. Error events remain sampled at Sentry's 100% default.
+
+Because WiseKoin processes financial data, automatic collection of user identity,
+cookies, request and response headers, HTTP bodies, query parameters, GraphQL data,
+and file paths is disabled. Unexpected server errors and media-processing I/O failures
+are reported explicitly; expected validation, authentication, rate-limit, and other
+4xx responses are not reported as errors.
 
 ### AI media handling and retention
 

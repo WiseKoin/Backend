@@ -1,5 +1,6 @@
 package com.wisekoin.backend.module.common.exception;
 
+import io.sentry.Sentry;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -56,6 +57,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(IOException.class)
     public ResponseEntity<Map<String, String>> handleMediaProcessing(IOException e) {
+        Sentry.captureException(e);
         log.error("Uploaded media processing failed: {}", e.getClass().getSimpleName());
         return ResponseEntity.internalServerError()
                 .body(
@@ -127,6 +129,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, String>> handleGeneric(Exception e) {
+        Sentry.captureException(e);
         log.error("Unhandled request failure: {}", e.getClass().getSimpleName());
         return ResponseEntity.internalServerError()
                 .body(Map.of("error", "An unexpected error occurred. Please try again later."));
