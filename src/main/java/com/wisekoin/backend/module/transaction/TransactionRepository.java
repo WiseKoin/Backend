@@ -2,6 +2,7 @@ package com.wisekoin.backend.module.transaction;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -35,6 +36,9 @@ public interface TransactionRepository
     boolean existsByDebtId(Long debtId);
 
     boolean existsByGoalId(Long goalId);
+
+    @EntityGraph(attributePaths = {"wallet", "category", "debt", "goal", "destinationWallet"})
+    Optional<Transaction> findByUserIdAndIdempotencyKeyHash(Long userId, String idempotencyKeyHash);
 
     @EntityGraph(attributePaths = {"wallet"})
     List<Transaction> findAllByGoalId(Long goalId);

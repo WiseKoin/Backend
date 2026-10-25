@@ -8,6 +8,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.wisekoin.backend.module.ai.notification.BankNotificationSuggestionService;
+import com.wisekoin.backend.module.ai.notification.NotificationPilotMetricService;
 import com.wisekoin.backend.module.ai.suggestion.dto.AiSuggestionRejectionRequest;
 import com.wisekoin.backend.module.ai.suggestion.dto.AiSuggestionResponse;
 import com.wisekoin.backend.module.auth.security.CustomUserDetails;
@@ -32,15 +34,22 @@ import org.springframework.web.method.support.ModelAndViewContainer;
 
 class AiSuggestionControllerTest {
     private AiSuggestionService suggestionService;
+    private BankNotificationSuggestionService bankNotificationSuggestionService;
+    private NotificationPilotMetricService notificationMetricService;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         suggestionService = mock(AiSuggestionService.class);
+        bankNotificationSuggestionService = mock(BankNotificationSuggestionService.class);
+        notificationMetricService = mock(NotificationPilotMetricService.class);
         mockMvc =
                 MockMvcBuilders.standaloneSetup(
                                 new AiSuggestionController(
-                                        suggestionService, mock(TransactionMapper.class)))
+                                        suggestionService,
+                                        mock(TransactionMapper.class),
+                                        bankNotificationSuggestionService,
+                                        notificationMetricService))
                         .setControllerAdvice(new GlobalExceptionHandler())
                         .setCustomArgumentResolvers(authenticatedUser(42L))
                         .build();
@@ -90,6 +99,35 @@ class AiSuggestionControllerTest {
                 .andExpect(jsonPath("$.reason").exists());
     }
 
+    @Test
+    void notificationSuggestionUsesAuthenticatedUserAndDeidentifiedContract() throws Exception {
+        UUID suggestionId = UUID.randomUUID();
+        when(bankNotificationSuggestionService.create(eq(42L), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(response(suggestionId, "PENDING", null));
+
+        mockMvc.perform(
+                        post("/api/ai/suggestions/notifications")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                        {
+                                          "source": "VCB",
+                                          "source_reference_hash": "%s",
+                                          "parser_version": "vcb-v1",
+                                          "amount": 125000,
+                                          "currency": "VND",
+                                          "type": "EXPENSE",
+                                          "occurred_at": "2026-10-25T09:00:00",
+                                          "locale": "vi-VN",
+                                          "time_zone": "Asia/Ho_Chi_Minh"
+                                        }
+                                        """
+                                                .formatted("a".repeat(64))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(suggestionId.toString()))
+                .andExpect(jsonPath("$.status").value("PENDING"));
+    }
+
     private AiSuggestionResponse response(UUID id, String status, String rejectionReason) {
         Instant now = Instant.parse("2026-10-24T03:00:00Z");
         return new AiSuggestionResponse(
@@ -111,6 +149,7 @@ class AiSuggestionControllerTest {
                 "receipt-v2",
                 "model-test",
                 "fake",
+                null,
                 "vi-VN",
                 "Asia/Ho_Chi_Minh",
                 now,

@@ -69,6 +69,12 @@ public class Transaction {
     @Column(nullable = false)
     private LocalDateTime transactionDate;
 
+    @Column(name = "idempotency_key_hash", length = 64)
+    private String idempotencyKeyHash;
+
+    @Column(name = "idempotency_request_hash", length = 64)
+    private String idempotencyRequestHash;
+
     public enum TransactionType {
         INCOME,
         EXPENSE,

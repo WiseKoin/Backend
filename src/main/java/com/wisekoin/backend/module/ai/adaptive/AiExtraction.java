@@ -124,4 +124,10 @@ public class AiExtraction {
 
     @Column(name = "transaction_id")
     private Long transactionId;
+
+    @Column(name = "source_reference_hash", length = 64)
+    private String sourceReferenceHash;
+
+    @Column(name = "parser_version", length = 50)
+    private String parserVersion;
 }

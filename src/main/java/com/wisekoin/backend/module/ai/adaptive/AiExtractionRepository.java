@@ -15,4 +15,7 @@ public interface AiExtractionRepository extends JpaRepository<AiExtraction, UUID
     Optional<AiExtraction> findOneByIdAndUserId(UUID id, Long userId);
 
     Page<AiExtraction> findAllByUserIdAndStatus(Long userId, String status, Pageable pageable);
+
+    Optional<AiExtraction> findByUserIdAndSourceAndSourceReferenceHash(
+            Long userId, String source, String sourceReferenceHash);
 }

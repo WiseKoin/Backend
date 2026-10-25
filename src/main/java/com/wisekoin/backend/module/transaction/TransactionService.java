@@ -7,6 +7,7 @@ import com.wisekoin.backend.module.common.event.TransactionCreatedEvent;
 import com.wisekoin.backend.module.common.event.TransactionDeletedEvent;
 import com.wisekoin.backend.module.common.event.TransactionUpdatedEvent;
 import com.wisekoin.backend.module.common.exception.BadRequestException;
+import com.wisekoin.backend.module.common.exception.IdempotencyConflictException;
 import com.wisekoin.backend.module.common.exception.ResourceNotFoundException;
 import com.wisekoin.backend.module.debt.Debt;
 import com.wisekoin.backend.module.debt.DebtRepository;
@@ -22,11 +23,16 @@ import com.wisekoin.backend.module.wallet.Wallet;
 import com.wisekoin.backend.module.wallet.WalletRepository;
 import jakarta.transaction.Transactional;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -49,6 +55,42 @@ public class TransactionService {
 
     @Transactional
     public Transaction createTransaction(Long userId, TransactionRequest request) {
+        return createTransaction(userId, request, null, null, null);
+    }
+
+    @Transactional
+    public TransactionCreationResult createIdempotently(
+            Long userId, TransactionRequest request, String idempotencyKey) {
+        String keyHash = hashIdempotencyKey(idempotencyKey);
+        if (keyHash == null) {
+            return new TransactionCreationResult(
+                    createTransaction(userId, request, null, null, null), false);
+        }
+
+        User lockedUser =
+                userRepository
+                        .findByIdForUpdate(userId)
+                        .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        String requestHash = hashRequest(request);
+        var existing = transactionRepository.findByUserIdAndIdempotencyKeyHash(userId, keyHash);
+        if (existing.isPresent()) {
+            if (!Objects.equals(existing.get().getIdempotencyRequestHash(), requestHash)) {
+                throw new IdempotencyConflictException(
+                        "This Idempotency-Key was already used for a different transaction request.");
+            }
+            return new TransactionCreationResult(existing.get(), true);
+        }
+
+        return new TransactionCreationResult(
+                createTransaction(userId, request, lockedUser, keyHash, requestHash), false);
+    }
+
+    private Transaction createTransaction(
+            Long userId,
+            TransactionRequest request,
+            User user,
+            String idempotencyKeyHash,
+            String requestHash) {
         Wallet wallet = getOwnedWallet(userId, request.getWalletId());
         Category category =
                 resolveCategory(
@@ -63,7 +105,7 @@ public class TransactionService {
                         request.getDestinationWalletId());
 
         Transaction newTransaction = new Transaction();
-        User userProxy = userRepository.getReferenceById(userId);
+        User userProxy = user != null ? user : userRepository.getReferenceById(userId);
 
         newTransaction.setUser(userProxy);
         newTransaction.setWallet(wallet);
@@ -76,6 +118,8 @@ public class TransactionService {
                 request.getTransactionDate() != null
                         ? request.getTransactionDate()
                         : LocalDateTime.now());
+        newTransaction.setIdempotencyKeyHash(idempotencyKeyHash);
+        newTransaction.setIdempotencyRequestHash(requestHash);
 
         if (request.getDebtId() != null) {
             Debt debt = debtRepository.getReferenceById(request.getDebtId());
@@ -107,6 +151,59 @@ public class TransactionService {
                         request.getGoalId()));
 
         return savedTransaction;
+    }
+
+    private String hashIdempotencyKey(String idempotencyKey) {
+        if (idempotencyKey == null) {
+            return null;
+        }
+        String normalized = idempotencyKey.trim();
+        if (normalized.isBlank() || normalized.length() > 200) {
+            throw new BadRequestException(
+                    "Idempotency-Key must contain between 1 and 200 characters");
+        }
+        return sha256(normalized);
+    }
+
+    private String hashRequest(TransactionRequest request) {
+        MessageDigest digest = sha256Digest();
+        addHashField(digest, request.getWalletId());
+        addHashField(digest, request.getDestinationWalletId());
+        addHashField(digest, request.getCategoryId());
+        addHashField(
+                digest,
+                request.getAmount() == null
+                        ? null
+                        : request.getAmount().stripTrailingZeros().toPlainString());
+        addHashField(digest, request.getType());
+        addHashField(digest, request.getNote());
+        addHashField(digest, request.getTransactionDate());
+        addHashField(digest, request.getDebtId());
+        addHashField(digest, request.getGoalId());
+        addHashField(digest, request.getAiExtractionId());
+        addHashField(digest, request.isRememberAiCategory());
+        return HexFormat.of().formatHex(digest.digest());
+    }
+
+    private void addHashField(MessageDigest digest, Object value) {
+        String encoded = value == null ? "-" : value.toString();
+        digest.update(Integer.toString(encoded.length()).getBytes(StandardCharsets.UTF_8));
+        digest.update((byte) ':');
+        digest.update(encoded.getBytes(StandardCharsets.UTF_8));
+        digest.update((byte) ';');
+    }
+
+    private String sha256(String value) {
+        return HexFormat.of()
+                .formatHex(sha256Digest().digest(value.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    private MessageDigest sha256Digest() {
+        try {
+            return MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is unavailable", exception);
+        }
     }
 
     @Transactional

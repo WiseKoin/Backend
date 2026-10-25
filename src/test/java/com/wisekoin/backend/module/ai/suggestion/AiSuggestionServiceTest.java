@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import com.wisekoin.backend.module.ai.adaptive.AiExtraction;
 import com.wisekoin.backend.module.ai.adaptive.AiExtractionRepository;
 import com.wisekoin.backend.module.ai.adaptive.MerchantNormalizer;
+import com.wisekoin.backend.module.ai.notification.NotificationPilotMetricService;
 import com.wisekoin.backend.module.ai.suggestion.dto.AiSuggestionClarificationRequest;
 import com.wisekoin.backend.module.ai.suggestion.dto.AiSuggestionConfirmationRequest;
 import com.wisekoin.backend.module.ai.suggestion.dto.AiSuggestionRejectionRequest;
@@ -19,6 +20,7 @@ import com.wisekoin.backend.module.category.CategoryRepository;
 import com.wisekoin.backend.module.common.exception.BadRequestException;
 import com.wisekoin.backend.module.common.exception.ResourceNotFoundException;
 import com.wisekoin.backend.module.transaction.Transaction;
+import com.wisekoin.backend.module.transaction.TransactionCreationResult;
 import com.wisekoin.backend.module.transaction.TransactionService;
 import com.wisekoin.backend.module.transaction.dto.TransactionRequest;
 import com.wisekoin.backend.module.user.User;
@@ -44,6 +46,8 @@ class AiSuggestionServiceTest {
     private final WalletRepository walletRepository = mock(WalletRepository.class);
     private final UserRepository userRepository = mock(UserRepository.class);
     private final TransactionService transactionService = mock(TransactionService.class);
+    private final NotificationPilotMetricService notificationMetricService =
+            mock(NotificationPilotMetricService.class);
     private final Clock clock = Clock.fixed(Instant.parse("2026-10-24T03:00:00Z"), ZoneOffset.UTC);
     private final AiSuggestionService service =
             new AiSuggestionService(
@@ -54,6 +58,7 @@ class AiSuggestionServiceTest {
                     userRepository,
                     transactionService,
                     new MerchantNormalizer(),
+                    notificationMetricService,
                     clock);
 
     private UUID suggestionId;
@@ -111,7 +116,7 @@ class AiSuggestionServiceTest {
                 .thenReturn(Optional.of(suggestion));
         when(extractionRepository.findOneByIdAndUserId(suggestionId, 42L))
                 .thenReturn(Optional.of(suggestion));
-        when(transactionService.createTransaction(any(), any()))
+        when(transactionService.createIdempotently(any(), any(), any()))
                 .thenAnswer(
                         invocation -> {
                             suggestion.setStatus("CONFIRMED");
@@ -119,7 +124,7 @@ class AiSuggestionServiceTest {
                             suggestion.setTransactionId(99L);
                             Transaction transaction = new Transaction();
                             transaction.setId(99L);
-                            return transaction;
+                            return new TransactionCreationResult(transaction, false);
                         });
 
         AiSuggestionConfirmationRequest request = new AiSuggestionConfirmationRequest();
@@ -129,7 +134,10 @@ class AiSuggestionServiceTest {
         ArgumentCaptor<TransactionRequest> requestCaptor =
                 ArgumentCaptor.forClass(TransactionRequest.class);
         verify(transactionService)
-                .createTransaction(org.mockito.ArgumentMatchers.eq(42L), requestCaptor.capture());
+                .createIdempotently(
+                        org.mockito.ArgumentMatchers.eq(42L),
+                        requestCaptor.capture(),
+                        org.mockito.ArgumentMatchers.eq("ai-suggestion:" + suggestionId));
         TransactionRequest transactionRequest = requestCaptor.getValue();
         assertEquals(5L, transactionRequest.getWalletId());
         assertEquals(new BigDecimal("125000.00"), transactionRequest.getAmount());

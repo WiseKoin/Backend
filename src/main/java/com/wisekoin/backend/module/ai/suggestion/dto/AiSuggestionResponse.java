@@ -27,6 +27,7 @@ public record AiSuggestionResponse(
         @JsonProperty("prompt_version") String promptVersion,
         @JsonProperty("model_version") String modelVersion,
         String provider,
+        @JsonProperty("parser_version") String parserVersion,
         String locale,
         @JsonProperty("time_zone") String timeZone,
         @JsonProperty("created_at") Instant createdAt,

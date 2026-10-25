@@ -4,6 +4,7 @@ import com.wisekoin.backend.module.ai.adaptive.AiExtraction;
 import com.wisekoin.backend.module.ai.adaptive.AiExtractionRepository;
 import com.wisekoin.backend.module.ai.adaptive.MerchantNormalizer;
 import com.wisekoin.backend.module.ai.dto.AiFieldAmbiguity;
+import com.wisekoin.backend.module.ai.notification.NotificationPilotMetricService;
 import com.wisekoin.backend.module.ai.suggestion.dto.AiSuggestionClarificationRequest;
 import com.wisekoin.backend.module.ai.suggestion.dto.AiSuggestionConfirmationRequest;
 import com.wisekoin.backend.module.ai.suggestion.dto.AiSuggestionRejectionRequest;
@@ -13,6 +14,7 @@ import com.wisekoin.backend.module.category.CategoryRepository;
 import com.wisekoin.backend.module.common.exception.BadRequestException;
 import com.wisekoin.backend.module.common.exception.ResourceNotFoundException;
 import com.wisekoin.backend.module.transaction.Transaction;
+import com.wisekoin.backend.module.transaction.TransactionCreationResult;
 import com.wisekoin.backend.module.transaction.TransactionService;
 import com.wisekoin.backend.module.transaction.dto.TransactionRequest;
 import com.wisekoin.backend.module.user.User;
@@ -48,6 +50,7 @@ public class AiSuggestionService {
     private final UserRepository userRepository;
     private final TransactionService transactionService;
     private final MerchantNormalizer merchantNormalizer;
+    private final NotificationPilotMetricService notificationMetricService;
     private final Clock clock;
 
     @Transactional
@@ -98,7 +101,13 @@ public class AiSuggestionService {
         transactionRequest.setAiExtractionId(suggestionId);
         transactionRequest.setRememberAiCategory(request.isRememberAiCategory());
 
-        Transaction transaction = transactionService.createTransaction(userId, transactionRequest);
+        TransactionCreationResult creation =
+                transactionService.createIdempotently(
+                        userId, transactionRequest, "ai-suggestion:" + suggestionId);
+        Transaction transaction = creation.transaction();
+        if (!creation.replayed()) {
+            notificationMetricService.recordConfirmed(userId, suggestion);
+        }
         AiSuggestionResponse response =
                 toResponse(
                         extractionRepository
@@ -186,6 +195,7 @@ public class AiSuggestionService {
         suggestion.setRejectionReason(request.reason().name());
         suggestion.setRejectedAt(now);
         suggestion.setUpdatedAt(now);
+        notificationMetricService.recordRejected(userId, suggestion, request.reason());
         actionRepository.save(
                 toAction(suggestion, userId, "REJECTED", request.reason().name(), now));
         return toResponse(suggestion);
@@ -368,6 +378,7 @@ public class AiSuggestionService {
                 suggestion.getPromptVersion(),
                 suggestion.getModelVersion(),
                 suggestion.getProvider(),
+                suggestion.getParserVersion(),
                 suggestion.getLocale(),
                 suggestion.getTimeZone(),
                 suggestion.getCreatedAt(),

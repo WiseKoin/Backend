@@ -15,7 +15,7 @@ The assessment is based on the repository state reviewed on October 23, 2026. Le
 
 Receipt and voice entry are functional assisted-entry MVPs. They upload media to Gemini, receive structured fields, allow the user to edit the result, and create a normal transaction only after confirmation. This confirmation boundary is valuable and should remain.
 
-They are not complete production AI systems. The original implementation depended heavily on one hard-coded prompt, did not learn from corrections, had limited semantic validation, and had weak provider-failure handling. Notification-based transaction tracking and direct bank integration are not implemented.
+They are not complete production AI systems. The original implementation depended heavily on one hard-coded prompt, did not learn from corrections, had limited semantic validation, and had weak provider-failure handling. An opt-in Android notification pilot is now implemented for a small explicit bank/e-wallet allowlist. Parsing and redaction happen locally, typed pending suggestions synchronize to the authenticated backend, and no notification text is uploaded. Direct bank integration remains future work.
 
 The target design is a layered suggestion engine. AI should propose facts and categories; deterministic application code must validate ownership, type compatibility, amounts, currencies, duplicates, and whether clarification is required. Ambiguous results must remain pending instead of changing wallet balances.
 
@@ -337,7 +337,7 @@ Android can receive posted-notification callbacks through `NotificationListenerS
 
 Reference: [Android NotificationListenerService](https://developer.android.com/reference/android/service/notification/NotificationListenerService)
 
-This feature is not currently present. The Android app has no notification listener service, `POST_NOTIFICATIONS` permission, WorkManager pipeline, Firebase Messaging dependency, bank parser registry, or notification clarification UI. The backend has no device-token, notification-ingestion, pending-suggestion, or push service.
+The Phase 3 pilot is now present. Android uses an opt-in notification listener, an explicit package/parser registry, an encrypted account-scoped retry queue, and a local review notification that deep-links into the clarification UI. The authenticated backend accepts only de-identified typed facts, creates pending suggestions, and aggregates privacy-safe pilot counters. Firebase/device-token infrastructure is intentionally unnecessary for this same-device synchronous pilot.
 
 ### Recommended device flow
 
@@ -422,11 +422,17 @@ Reference: [Google Play User Data policy](https://support.google.com/googleplay/
 
 ### Phase 3: notification pilot
 
-- Implement consent and notification-access onboarding.
-- Add a parser registry and support a small, explicitly tested bank allowlist.
-- Parse/redact locally and create pending suggestions.
-- Add actionable local notifications and deep links into clarification UI.
-- Measure parser coverage, false positives, duplicate rate, and missed-event behavior.
+- [x] Implement consent and notification-access onboarding.
+- [x] Add a parser registry and support a small, explicitly tested bank allowlist.
+- [x] Parse/redact locally and create pending suggestions.
+- [x] Add actionable local notifications and deep links into clarification UI.
+- [x] Measure parser coverage, false positives, duplicate rate, and missed-event behavior.
+
+Phase 3 uses versioned Android parsers for VCB Digibank, MB Bank, Techcombank Mobile, and MoMo. The encrypted account-scoped queue contains only amount, currency, direction, source identifier/label, parser version, occurrence time, a hashed source reference, and the returned suggestion ID. The listener uploads no raw notification body, account number, balance, or bank reference.
+
+The backend persists additive daily counters for observed, parsed, parse-failed, locally duplicated, uploaded, server-replayed, possible-duplicate, confirmed, duplicate-rejected, and false-positive-rejected events. Parser coverage is `parsed / observed`; parse failures are the pilot's measurable missed-event proxy. False-positive rates remain explicitly uncalibrated until the consented corpus and device matrix are representative.
+
+Transaction creation now also supports server-enforced idempotency. Per-user hashed keys and canonical request hashes prevent balance events from being applied twice; identical replays return the original transaction, while conflicting key reuse returns a stable `409 IDEMPOTENCY_KEY_REUSED` response.
 
 ### Phase 4: bank API partnerships
 

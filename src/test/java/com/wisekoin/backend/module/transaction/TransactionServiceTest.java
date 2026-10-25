@@ -1,14 +1,20 @@
 package com.wisekoin.backend.module.transaction;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.wisekoin.backend.module.ai.adaptive.AiAdaptationService;
 import com.wisekoin.backend.module.category.CategoryRepository;
+import com.wisekoin.backend.module.common.event.TransactionCreatedEvent;
+import com.wisekoin.backend.module.common.exception.IdempotencyConflictException;
 import com.wisekoin.backend.module.debt.DebtRepository;
 import com.wisekoin.backend.module.goal.GoalRepository;
 import com.wisekoin.backend.module.transaction.dto.TransactionRequest;
@@ -19,6 +25,7 @@ import com.wisekoin.backend.module.wallet.WalletRepository;
 import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 
@@ -75,6 +82,82 @@ class TransactionServiceTest {
                         Transaction.TransactionType.TRANSFER,
                         false,
                         transaction.getId());
+    }
+
+    @Test
+    void idempotencyKeyReturnsOriginalTransactionWithoutPublishingAgain() {
+        User user = new User();
+        user.setId(42L);
+        Wallet source = wallet(1L, user);
+        Wallet destination = wallet(2L, user);
+        AtomicReference<Transaction> saved = new AtomicReference<>();
+        when(userRepository.findByIdForUpdate(42L)).thenReturn(Optional.of(user));
+        when(walletRepository.findById(1L)).thenReturn(Optional.of(source));
+        when(walletRepository.findById(2L)).thenReturn(Optional.of(destination));
+        when(transactionRepository.findByUserIdAndIdempotencyKeyHash(any(), any()))
+                .thenAnswer(invocation -> Optional.ofNullable(saved.get()));
+        when(transactionRepository.save(any(Transaction.class)))
+                .thenAnswer(
+                        invocation -> {
+                            Transaction transaction = invocation.getArgument(0);
+                            transaction.setId(99L);
+                            saved.set(transaction);
+                            return transaction;
+                        });
+
+        TransactionRequest firstRequest = transferRequest("250000.00");
+        TransactionRequest retryRequest = transferRequest("250000");
+        TransactionCreationResult first =
+                service.createIdempotently(42L, firstRequest, "bank-event-123");
+        TransactionCreationResult replay =
+                service.createIdempotently(42L, retryRequest, "bank-event-123");
+
+        assertFalse(first.replayed());
+        assertTrue(replay.replayed());
+        assertEquals(99L, replay.transaction().getId());
+        verify(transactionRepository, times(1)).save(any(Transaction.class));
+        verify(eventPublisher, times(1)).publishEvent(any(TransactionCreatedEvent.class));
+        verify(aiAdaptationService, times(1))
+                .confirmExtraction(
+                        42L, null, null, Transaction.TransactionType.TRANSFER, false, 99L);
+    }
+
+    @Test
+    void reusingKeyForDifferentRequestIsRejected() {
+        User user = new User();
+        user.setId(42L);
+        Wallet source = wallet(1L, user);
+        Wallet destination = wallet(2L, user);
+        AtomicReference<Transaction> saved = new AtomicReference<>();
+        when(userRepository.findByIdForUpdate(42L)).thenReturn(Optional.of(user));
+        when(walletRepository.findById(1L)).thenReturn(Optional.of(source));
+        when(walletRepository.findById(2L)).thenReturn(Optional.of(destination));
+        when(transactionRepository.findByUserIdAndIdempotencyKeyHash(any(), any()))
+                .thenAnswer(invocation -> Optional.ofNullable(saved.get()));
+        when(transactionRepository.save(any(Transaction.class)))
+                .thenAnswer(
+                        invocation -> {
+                            Transaction transaction = invocation.getArgument(0);
+                            transaction.setId(99L);
+                            saved.set(transaction);
+                            return transaction;
+                        });
+
+        service.createIdempotently(42L, transferRequest("250000"), "bank-event-123");
+
+        assertThrows(
+                IdempotencyConflictException.class,
+                () -> service.createIdempotently(42L, transferRequest("300000"), "bank-event-123"));
+        verify(transactionRepository, times(1)).save(any(Transaction.class));
+    }
+
+    private TransactionRequest transferRequest(String amount) {
+        TransactionRequest request = new TransactionRequest();
+        request.setWalletId(1L);
+        request.setDestinationWalletId(2L);
+        request.setAmount(new BigDecimal(amount));
+        request.setType(Transaction.TransactionType.TRANSFER);
+        return request;
     }
 
     private Wallet wallet(Long id, User user) {

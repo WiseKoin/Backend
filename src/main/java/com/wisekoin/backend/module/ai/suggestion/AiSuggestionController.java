@@ -1,5 +1,10 @@
 package com.wisekoin.backend.module.ai.suggestion;
 
+import com.wisekoin.backend.module.ai.notification.BankNotificationSuggestionService;
+import com.wisekoin.backend.module.ai.notification.NotificationPilotMetricService;
+import com.wisekoin.backend.module.ai.notification.dto.BankNotificationSuggestionRequest;
+import com.wisekoin.backend.module.ai.notification.dto.NotificationMetricBatchRequest;
+import com.wisekoin.backend.module.ai.notification.dto.NotificationMetricResponse;
 import com.wisekoin.backend.module.ai.suggestion.dto.AiSuggestionClarificationRequest;
 import com.wisekoin.backend.module.ai.suggestion.dto.AiSuggestionConfirmationRequest;
 import com.wisekoin.backend.module.ai.suggestion.dto.AiSuggestionConfirmationResponse;
@@ -8,6 +13,8 @@ import com.wisekoin.backend.module.ai.suggestion.dto.AiSuggestionResponse;
 import com.wisekoin.backend.module.auth.security.CustomUserDetails;
 import com.wisekoin.backend.module.transaction.mapper.TransactionMapper;
 import jakarta.validation.Valid;
+import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -30,6 +37,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class AiSuggestionController {
     private final AiSuggestionService suggestionService;
     private final TransactionMapper transactionMapper;
+    private final BankNotificationSuggestionService bankNotificationSuggestionService;
+    private final NotificationPilotMetricService notificationMetricService;
 
     @GetMapping
     public ResponseEntity<Page<AiSuggestionResponse>> list(
@@ -48,6 +57,31 @@ public class AiSuggestionController {
     public ResponseEntity<AiSuggestionResponse> get(
             @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
         return ResponseEntity.ok(suggestionService.get(currentUser.getId(), id));
+    }
+
+    @PostMapping("/notifications")
+    public ResponseEntity<AiSuggestionResponse> createNotificationSuggestion(
+            @Valid @RequestBody BankNotificationSuggestionRequest request,
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
+        return ResponseEntity.ok(
+                bankNotificationSuggestionService.create(currentUser.getId(), request));
+    }
+
+    @PostMapping("/notifications/metrics")
+    public ResponseEntity<Void> recordNotificationMetrics(
+            @Valid @RequestBody NotificationMetricBatchRequest request,
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
+        notificationMetricService.recordClientMetrics(currentUser.getId(), request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/notifications/metrics")
+    public ResponseEntity<List<NotificationMetricResponse>> getNotificationMetrics(
+            @RequestParam(required = false) LocalDate from,
+            @RequestParam(required = false) LocalDate to,
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
+        return ResponseEntity.ok(
+                notificationMetricService.getMetrics(currentUser.getId(), from, to));
     }
 
     @PatchMapping("/{id}/clarification")

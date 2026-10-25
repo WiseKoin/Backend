@@ -51,7 +51,7 @@ Spring Boot REST API for the WiseKoin financial management application.
 
 ### Transactions
 - `GET /api/transactions` — List transactions (paginated, filterable)
-- `POST /api/transactions` — Create a new transaction
+- `POST /api/transactions` — Create a new transaction; accepts an optional `Idempotency-Key`
 - `PUT/PATCH /api/transactions/{id}` — Update a transaction and recalculate linked balances
 - `DELETE /api/transactions/{id}` — Delete a transaction and reverse its linked balances
 - `GET /api/transactions/monthly?year={year}` — Get monthly income/expense stats
@@ -122,8 +122,17 @@ When a transaction is created from an AI suggestion, send its `aiExtractionId` i
 - `PATCH /api/ai/suggestions/{id}/clarification` — Persist corrected typed fields without changing balances. Omitted fields remain unchanged; nullable category/date/wallet/merchant fields may be explicitly cleared. Set `acknowledgePossibleDuplicate=true` only after explicit review.
 - `POST /api/ai/suggestions/{id}/confirmation` — Confirm the current suggestion and create a transaction through the normal transactional service. Request fields are optional overrides; a wallet and a resolved type/amount/category (or two wallets for a transfer) must be available after merging.
 - `POST /api/ai/suggestions/{id}/rejection` — Reject a pending suggestion with `DUPLICATE`, `INCORRECT`, `NOT_RELEVANT`, `PRIVACY`, or `OTHER`.
+- `POST /api/ai/suggestions/notifications` — Create or replay a pending, de-identified suggestion from an allowlisted Android parser. The request contains typed facts and a SHA-256 source reference, never notification text, account numbers, or balances.
+- `POST /api/ai/suggestions/notifications/metrics` — Add bounded per-day parser counters for the authenticated user.
+- `GET /api/ai/suggestions/notifications/metrics?from=2026-10-01&to=2026-10-14` — Read parser coverage, false-positive, duplicate, confirmation, and missed/parse-failure counters.
 
 All suggestion lookups and referenced wallet/category IDs are user-scoped. Concurrent terminal actions are serialized by a database write lock. Clarification and rejection actions are append-only audit records and deliberately exclude media, transcripts, free-form notes, and provider payloads. Existing clients may continue confirming through `POST /api/transactions` with `aiExtractionId`; the dedicated confirmation endpoint is additive.
+
+The notification pilot accepts only the versioned `VCB`, `MB`, `TECHCOMBANK`, and `MOMO` parser contracts. The Android client performs allowlist selection, parsing, and redaction before upload. `parse_failure_count` is the pilot's missed-event proxy; `rejected_false_positive_count` is derived from owned terminal suggestion actions. These metrics contain no notification content.
+
+### Transaction idempotency
+
+Android sends an `Idempotency-Key` for every transaction creation request. The server stores only its SHA-256 hash together with a canonical request hash under a per-user uniqueness constraint. Replaying the same key and semantically identical request returns the original transaction with `Idempotency-Replayed: true` and does not publish balance-changing events again. Reusing a key with different transaction data returns `409 IDEMPOTENCY_KEY_REUSED`.
 
 The synthetic/de-identified Vietnamese seed corpus and its privacy/metric rules live in [`evaluation/vietnamese-ai-corpus`](evaluation/vietnamese-ai-corpus). It contains deterministic receipt images, synthetic M4A speech with transcript sidecars, and synthetic bank-notification templates. Synthetic speech is for regression coverage and cannot satisfy representative human-speech release thresholds.
 
