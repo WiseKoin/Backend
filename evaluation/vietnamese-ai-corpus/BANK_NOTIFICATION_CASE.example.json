@@ -1,0 +1,33 @@
+{
+  "id": "source-channel-direction-template-v1",
+  "modality": "BANK_NOTIFICATION",
+  "locale": "vi-VN",
+  "region": "NATIONWIDE",
+  "provenance": {
+    "kind": "CONSENTED",
+    "deidentified": true,
+    "consent_record_id": "restricted-store-record-id",
+    "source_url": null,
+    "source_accessed_at": null,
+    "derivation": "All account, balance, name, phone, reference, and free-text values replaced before commit."
+  },
+  "input": {
+    "asset": "assets/bank-notifications/source-id/source-channel-direction-template-v1.txt",
+    "format": "text/plain",
+    "media_status": "DEIDENTIFIED_TEXT_TEMPLATE",
+    "conditions": ["masked_account", "balance_removed"],
+    "source_id": "SOURCE_ID",
+    "package_name": "verified.android.package",
+    "channel": "APP_PUSH",
+    "template_version": "source-app-v1"
+  },
+  "expected": {
+    "amount": "125000",
+    "currency": "VND",
+    "type": "INCOME",
+    "requires_clarification": false,
+    "ambiguities": []
+  },
+  "tags": ["bank_notification", "public_or_consented_format", "incoming", "masked_account"],
+  "eligible_metrics": ["semantic_amount", "semantic_currency", "semantic_type"]
+}

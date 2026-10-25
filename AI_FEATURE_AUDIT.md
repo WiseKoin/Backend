@@ -121,7 +121,7 @@ Implementation status for the adaptive layer:
 3. **Resolved:** Provider retries, fallback, API-key placement, safe error mapping, and request shape are exercised through deterministic fake-server tests.
 4. **Partially resolved:** Focused controller JSON contract coverage exists; full authentication-filter integration coverage for these two endpoints is still recommended.
 5. **Partially resolved:** Android DTO/serialization tests cover both extraction contracts; focused Receipt/Voice ViewModel tests are still recommended.
-6. **Partially resolved:** A versioned synthetic/de-identified seed corpus now covers Vietnamese receipts, regional currency expressions, synthetic M4A speech (including noise and self-correction), adversarial text, and representative synthetic bank-notification templates. Consented human regional/noisy recordings are still required before acoustic release thresholds can be claimed.
+6. **Partially resolved:** A versioned synthetic/de-identified seed corpus now covers Vietnamese receipts, regional currency expressions, synthetic M4A speech (including noise and self-correction), adversarial text, synthetic bank-notification cases, and provenance-tagged public-format-derived MB, Vietcombank, and Techcombank templates. Consented human regional/noisy recordings and consented current-device notification captures are still required before release thresholds can be claimed.
 7. There are no quality metrics such as exact amount accuracy, type accuracy, category top-1/top-3 accuracy, clarification rate, duplicate rate, or false auto-save rate.
 8. Operational metrics must be added without logging media, transcripts, full provider payloads, account details, or secrets.
 
@@ -229,14 +229,14 @@ New operational configuration:
 - `AI_AUDIO_MAX_BYTES` and `AI_AUDIO_MAX_DURATION`
 - `AI_INGESTION_PROCESSING_TIMEOUT`, `AI_INGESTION_METADATA_RETENTION`, and `AI_INGESTION_CLEANUP_CRON`
 
-Reliability/security verification completed on October 24, 2026:
+Reliability/security verification completed on October 25, 2026:
 
 - Focused media-ingestion tests cover streaming without `MultipartFile.getBytes()`, stable fingerprints, MIME mismatch, excessive dimensions, valid MP4/M4A duration, excessive duration, disguised audio, and excessive MP4 container nesting.
 - Ingestion-request tests cover hashed keys, traceable duplicate conflicts, and retention cleanup.
 - Prompt regression tests cover the untrusted-data boundary.
 - Controller and exception-handler tests cover idempotency-key forwarding and the duplicate response contract.
-- Backend full suite: 93 passed; backend Spotless check passed.
-- Android `testDebugUnitTest`, `lintDebug`, and `assembleDebug`: passed.
+- Backend full suite: 114 passed; backend Spotless check passed.
+- Android `testDebugUnitTest`, `lintDebug`, `assembleDebug`, and `assembleRelease`: passed. The release check used a placeholder HTTPS API URL and produced an unsigned APK; deployment signing and production connectivity were not exercised.
 
 ## Next recommended work
 

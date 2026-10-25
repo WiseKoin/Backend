@@ -134,7 +134,7 @@ The notification pilot accepts only the versioned `VCB`, `MB`, `TECHCOMBANK`, an
 
 Android sends an `Idempotency-Key` for every transaction creation request. The server stores only its SHA-256 hash together with a canonical request hash under a per-user uniqueness constraint. Replaying the same key and semantically identical request returns the original transaction with `Idempotency-Replayed: true` and does not publish balance-changing events again. Reusing a key with different transaction data returns `409 IDEMPOTENCY_KEY_REUSED`.
 
-The synthetic/de-identified Vietnamese seed corpus and its privacy/metric rules live in [`evaluation/vietnamese-ai-corpus`](evaluation/vietnamese-ai-corpus). It contains deterministic receipt images, synthetic M4A speech with transcript sidecars, and synthetic bank-notification templates. Synthetic speech is for regression coverage and cannot satisfy representative human-speech release thresholds.
+The Vietnamese evaluation corpus and its privacy/metric rules live in [`evaluation/vietnamese-ai-corpus`](evaluation/vietnamese-ai-corpus). It contains deterministic receipt images, synthetic M4A speech with transcript sidecars, synthetic safety cases, and provenance-tagged, de-identified templates derived from public MB, Vietcombank, and Techcombank formats. Synthetic speech and public format evidence cannot by themselves satisfy representative release thresholds.
 
 See [AI_FEATURE_AUDIT.md](AI_FEATURE_AUDIT.md) for the AI reliability audit, layered suggestion-engine design, and the notification/bank-integration roadmap.
 

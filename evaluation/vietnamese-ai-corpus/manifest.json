@@ -1,7 +1,7 @@
 {
-  "corpus_version": "1.0.0",
+  "corpus_version": "1.1.0",
   "created_at": "2026-10-24",
-  "description": "Synthetic, de-identified Vietnamese AI evaluation seed corpus",
+  "description": "Synthetic and public-format-derived, de-identified Vietnamese AI evaluation corpus",
   "cases": [
     {
       "id": "receipt-clean-cafe-south",
@@ -156,6 +156,83 @@
       "expected": {"amount": "65000", "currency": "VND", "type": "EXPENSE", "category_key": "TRANSPORT", "requires_clarification": false, "ambiguities": []},
       "tags": ["speech", "noisy", "self_correction", "currency_expression"],
       "eligible_metrics": ["end_to_end_audio_regression", "semantic_amount", "semantic_currency", "semantic_type", "semantic_category"]
+    },
+    {
+      "id": "mb-app-income-public-v1",
+      "modality": "BANK_NOTIFICATION",
+      "locale": "vi-VN",
+      "region": "NATIONWIDE",
+      "provenance": {"kind": "PUBLIC_FORMAT_DERIVED", "deidentified": true, "consent_record_id": null, "source_url": "https://github.com/kenhtaymay/tinhtinh/blob/1316d2f28bb8eea983cde22e7df9a855869048ae/README.md", "source_accessed_at": "2026-10-25", "derivation": "Retained the public MB app parser's sign, VND, timestamp, and ND field layout; replaced amount and memo."},
+      "input": {"asset": "assets/bank-notifications/public-derived/mb-app-income-v1.txt", "format": "text/plain", "media_status": "DEIDENTIFIED_TEXT_TEMPLATE", "conditions": ["app_push", "incoming", "memo_replaced"], "source_id": "MB", "package_name": "com.mbmobile", "channel": "APP_PUSH", "template_version": "mb-public-app-v1"},
+      "expected": {"amount": "486000", "currency": "VND", "type": "INCOME", "requires_clarification": false, "ambiguities": []},
+      "tags": ["bank_notification", "public_format_derived", "mb", "app_push", "incoming"],
+      "eligible_metrics": ["semantic_amount", "semantic_currency", "semantic_type"]
+    },
+    {
+      "id": "mb-sms-income-public-v1",
+      "modality": "BANK_NOTIFICATION",
+      "locale": "vi-VN",
+      "region": "NATIONWIDE",
+      "provenance": {"kind": "PUBLIC_FORMAT_DERIVED", "deidentified": true, "consent_record_id": null, "source_url": "https://thuvienphapluat.vn/banan/ban-an/ban-an-ve-toi-lua-dao-chiem-doat-tai-san-so-1042022hsst-244439", "source_accessed_at": "2026-10-25", "derivation": "Retained the public MB SMS field order and separators; masked account and removed balance, name, reference, and original amount."},
+      "input": {"asset": "assets/bank-notifications/public-derived/mb-sms-income-v1.txt", "format": "text/plain", "media_status": "DEIDENTIFIED_TEXT_TEMPLATE", "conditions": ["sms", "incoming", "masked_account", "balance_removed", "memo_replaced"], "source_id": "MB", "package_name": null, "channel": "SMS", "template_version": "mb-public-sms-v1"},
+      "expected": {"amount": "486000", "currency": "VND", "type": "INCOME", "requires_clarification": false, "ambiguities": []},
+      "tags": ["bank_notification", "public_format_derived", "mb", "sms", "incoming", "masked_account"],
+      "eligible_metrics": ["semantic_amount", "semantic_currency", "semantic_type"]
+    },
+    {
+      "id": "mb-sms-expense-public-v1",
+      "modality": "BANK_NOTIFICATION",
+      "locale": "vi-VN",
+      "region": "NATIONWIDE",
+      "provenance": {"kind": "PUBLIC_FORMAT_DERIVED", "deidentified": true, "consent_record_id": null, "source_url": "https://thuvienphapluat.vn/banan/ban-an/ban-an-ve-toi-lua-dao-chiem-doat-tai-san-so-392021hsst-222472", "source_accessed_at": "2026-10-25", "derivation": "Retained the public MB debit SMS field order and separators; masked account and removed balance, recipient, reference, and original amount."},
+      "input": {"asset": "assets/bank-notifications/public-derived/mb-sms-expense-v1.txt", "format": "text/plain", "media_status": "DEIDENTIFIED_TEXT_TEMPLATE", "conditions": ["sms", "outgoing", "masked_account", "balance_removed", "memo_replaced"], "source_id": "MB", "package_name": null, "channel": "SMS", "template_version": "mb-public-sms-v1"},
+      "expected": {"amount": "275000", "currency": "VND", "type": "EXPENSE", "requires_clarification": false, "ambiguities": []},
+      "tags": ["bank_notification", "public_format_derived", "mb", "sms", "outgoing", "masked_account"],
+      "eligible_metrics": ["semantic_amount", "semantic_currency", "semantic_type"]
+    },
+    {
+      "id": "vcb-sms-income-public-v1",
+      "modality": "BANK_NOTIFICATION",
+      "locale": "vi-VN",
+      "region": "NATIONWIDE",
+      "provenance": {"kind": "PUBLIC_FORMAT_DERIVED", "deidentified": true, "consent_record_id": null, "source_url": "https://www.bkav.com/documents/34207/296721/PhantichdieutraVN84App.pdf", "source_accessed_at": "2026-10-25", "derivation": "Retained the public Vietcombank SMS labels and ordering; masked account and removed balance, reference, sender, and original amount."},
+      "input": {"asset": "assets/bank-notifications/public-derived/vcb-sms-income-v1.txt", "format": "text/plain", "media_status": "DEIDENTIFIED_TEXT_TEMPLATE", "conditions": ["sms", "incoming", "masked_account", "balance_removed", "reference_removed", "memo_replaced"], "source_id": "VCB", "package_name": null, "channel": "SMS", "template_version": "vcb-public-sms-v1"},
+      "expected": {"amount": "375000", "currency": "VND", "type": "INCOME", "requires_clarification": false, "ambiguities": []},
+      "tags": ["bank_notification", "public_format_derived", "vcb", "sms", "incoming", "masked_account"],
+      "eligible_metrics": ["semantic_amount", "semantic_currency", "semantic_type"]
+    },
+    {
+      "id": "vcb-sms-expense-public-v1",
+      "modality": "BANK_NOTIFICATION",
+      "locale": "vi-VN",
+      "region": "NATIONWIDE",
+      "provenance": {"kind": "PUBLIC_FORMAT_DERIVED", "deidentified": true, "consent_record_id": null, "source_url": "https://www.scribd.com/presentation/732768625/e", "source_accessed_at": "2026-10-25", "derivation": "Retained the transcribed Vietcombank debit SMS labels and ordering; masked account and removed balance, reference, counterparty, and original amount."},
+      "input": {"asset": "assets/bank-notifications/public-derived/vcb-sms-expense-v1.txt", "format": "text/plain", "media_status": "DEIDENTIFIED_TEXT_TEMPLATE", "conditions": ["sms", "outgoing", "masked_account", "balance_removed", "reference_removed", "memo_replaced"], "source_id": "VCB", "package_name": null, "channel": "SMS", "template_version": "vcb-public-sms-v1"},
+      "expected": {"amount": "630000", "currency": "VND", "type": "EXPENSE", "requires_clarification": false, "ambiguities": []},
+      "tags": ["bank_notification", "public_format_derived", "vcb", "sms", "outgoing", "masked_account"],
+      "eligible_metrics": ["semantic_amount", "semantic_currency", "semantic_type"]
+    },
+    {
+      "id": "techcombank-app-income-public-v1",
+      "modality": "BANK_NOTIFICATION",
+      "locale": "vi-VN",
+      "region": "NATIONWIDE",
+      "provenance": {"kind": "PUBLIC_FORMAT_DERIVED", "deidentified": true, "consent_record_id": null, "source_url": "https://www.scribd.com/presentation/732768625/e", "source_accessed_at": "2026-10-25", "derivation": "Retained the public screenshot transcription's account, transaction amount, balance, and content labels; replaced every value."},
+      "input": {"asset": "assets/bank-notifications/public-derived/techcombank-app-income-v1.txt", "format": "text/plain", "media_status": "DEIDENTIFIED_TEXT_TEMPLATE", "conditions": ["app_push", "incoming", "masked_account", "balance_removed", "memo_replaced"], "source_id": "TECHCOMBANK", "package_name": "vn.com.techcombank.bb.app", "channel": "APP_PUSH", "template_version": "techcombank-public-app-v1"},
+      "expected": {"amount": "640000", "currency": "VND", "type": "INCOME", "requires_clarification": false, "ambiguities": []},
+      "tags": ["bank_notification", "public_format_derived", "techcombank", "app_push", "incoming", "masked_account"],
+      "eligible_metrics": ["semantic_amount", "semantic_currency", "semantic_type"]
+    },
+    {
+      "id": "techcombank-app-expense-public-v1",
+      "modality": "BANK_NOTIFICATION",
+      "locale": "vi-VN",
+      "region": "NATIONWIDE",
+      "provenance": {"kind": "PUBLIC_FORMAT_DERIVED", "deidentified": true, "consent_record_id": null, "source_url": "https://www.scribd.com/presentation/732768625/e", "source_accessed_at": "2026-10-25", "derivation": "Retained the public screenshot transcription's field labels and applied the observed signed-amount convention; replaced every value."},
+      "input": {"asset": "assets/bank-notifications/public-derived/techcombank-app-expense-v1.txt", "format": "text/plain", "media_status": "DEIDENTIFIED_TEXT_TEMPLATE", "conditions": ["app_push", "outgoing", "masked_account", "balance_removed", "memo_replaced"], "source_id": "TECHCOMBANK", "package_name": "vn.com.techcombank.bb.app", "channel": "APP_PUSH", "template_version": "techcombank-public-app-v1"},
+      "expected": {"amount": "215000", "currency": "VND", "type": "EXPENSE", "requires_clarification": false, "ambiguities": []},
+      "tags": ["bank_notification", "public_format_derived", "techcombank", "app_push", "outgoing", "masked_account"],
+      "eligible_metrics": ["semantic_amount", "semantic_currency", "semantic_type"]
     },
     {
       "id": "bank-expense-template-a",

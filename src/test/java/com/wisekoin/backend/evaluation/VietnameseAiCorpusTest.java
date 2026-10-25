@@ -41,7 +41,7 @@ class VietnameseAiCorpusTest {
         assertTrue(Files.isRegularFile(corpusRoot.resolve("manifest.schema.json")));
 
         JsonNode manifest = objectMapper.readTree(manifestPath.toFile());
-        assertEquals("1.0.0", manifest.path("corpus_version").asText());
+        assertEquals("1.1.0", manifest.path("corpus_version").asText());
         JsonNode cases = manifest.path("cases");
         assertTrue(cases.isArray());
         assertTrue(cases.size() >= 20, "The seed corpus must retain representative coverage");
@@ -51,6 +51,7 @@ class VietnameseAiCorpusTest {
         int receiptCount = 0;
         int speechCount = 0;
         int bankCount = 0;
+        int publicFormatCount = 0;
 
         for (JsonNode corpusCase : cases) {
             String id = requiredText(corpusCase, "id");
@@ -64,9 +65,18 @@ class VietnameseAiCorpusTest {
                 assertTrue(
                         provenance.path("consent_record_id").isNull(),
                         "Synthetic cases must not claim a human consent record");
-            } else {
+            } else if ("CONSENTED".equals(provenanceKind)) {
                 assertEquals("CONSENTED", provenanceKind);
                 assertFalse(requiredText(provenance, "consent_record_id").isBlank());
+            } else {
+                assertEquals("PUBLIC_FORMAT_DERIVED", provenanceKind);
+                assertTrue(provenance.path("consent_record_id").isNull());
+                assertTrue(requiredText(provenance, "source_url").startsWith("https://"));
+                assertTrue(
+                        requiredText(provenance, "source_accessed_at")
+                                .matches("\\d{4}-\\d{2}-\\d{2}"));
+                assertFalse(requiredText(provenance, "derivation").isBlank());
+                publicFormatCount++;
             }
 
             JsonNode input = corpusCase.path("input");
@@ -115,14 +125,26 @@ class VietnameseAiCorpusTest {
                                                     id
                                                             + " transcript proxy is incorrectly eligible for acoustic metrics"));
                 }
-                case "BANK_NOTIFICATION" -> bankCount++;
+                case "BANK_NOTIFICATION" -> {
+                    bankCount++;
+                    if ("PUBLIC_FORMAT_DERIVED".equals(provenanceKind)) {
+                        assertEquals(
+                                "DEIDENTIFIED_TEXT_TEMPLATE", requiredText(input, "media_status"));
+                        assertFalse(requiredText(input, "source_id").isBlank());
+                        assertTrue(
+                                Set.of("APP_PUSH", "SMS", "IN_APP")
+                                        .contains(requiredText(input, "channel")));
+                        assertFalse(requiredText(input, "template_version").isBlank());
+                    }
+                }
                 default -> throw new AssertionError("Unsupported modality in " + id);
             }
         }
 
         assertTrue(receiptCount >= 6);
         assertTrue(speechCount >= 8);
-        assertTrue(bankCount >= 6);
+        assertTrue(bankCount >= 13);
+        assertTrue(publicFormatCount >= 7);
         assertTrue(
                 coverageTags.containsAll(
                         Set.of(
